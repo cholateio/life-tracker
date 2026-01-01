@@ -1,6 +1,6 @@
 {
-    "name": "我的 Next.js PWA",
-    "short_name": "NextPWA",
+    "name": "Life Tracker",
+    "short_name": "My Life",
     "icons": [
         {
             "src": "/icons/icon-192x192.png",

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Moon, Dumbbell } from 'lucide-react';
+import { Moon, Dumbbell, Flag } from 'lucide-react';
 
 export default function Home() {
     const apps = [
@@ -11,6 +11,15 @@ export default function Home() {
             borderColor: 'border-[#3f4a4e]/30 hover:border-[#3f4a4e]',
             textColor: 'text-[#3f4a4e]',
             hoverBg: 'hover:bg-[#3f4a4e]/5',
+        },
+        {
+            name: '人生里程碑',
+            desc: 'Milestones',
+            href: '/milestone', // 對應剛剛建立的資料夾
+            icon: <Flag size={24} strokeWidth={2.5} />, // 記得 import { Flag } from 'lucide-react'
+            borderColor: 'border-[#c2785c]/30 hover:border-[#c2785c]',
+            textColor: 'text-[#c2785c]',
+            hoverBg: 'hover:bg-[#c2785c]/5',
         },
         {
             name: '健身日記',

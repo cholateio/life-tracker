@@ -5,6 +5,38 @@ import { supabase } from '@/lib/supabase';
 import { Moon, Sun, Briefcase, Coffee, Loader2, LucideIcon } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
+// --- Helper: Get Taipei Time String (HH:mm:ss) ---
+const getTaipeiTime = () => {
+    return new Date().toLocaleTimeString('en-GB', {
+        timeZone: 'Asia/Taipei',
+        hour12: false, // Forces 24-hour format like 22:00:00
+    });
+};
+
+// --- Helper: Get Taipei Date Details ---
+const getTaipeiDateDetails = () => {
+    const now = new Date();
+    return {
+        date: now.toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }), // YYYY-MM-DD
+        weekday: now.toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', weekday: 'short' }), // 週X
+    };
+};
+
+// --- Helper: Calculate Duration between two time strings ---
+const calculateDurationMinutes = (startTime: string, endTime: string) => {
+    const parseMinutes = (timeStr: string) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    const start = parseMinutes(startTime);
+    let end = parseMinutes(endTime);
+    // If wake time is earlier than sleep time (e.g., Sleep 23:00, Wake 07:00), add 24 hours
+    if (end < start) end += 24 * 60;
+
+    return end - start;
+};
+
 const ActionButton = ({
     onClick,
     disabled,
@@ -26,7 +58,6 @@ const ActionButton = ({
         ) : (
             <Icon size={48} strokeWidth={2} className="group-hover:scale-110 transition-transform duration-300" />
         )}
-        <span className="text-2xl font-bold tracking-wider"></span>
     </button>
 );
 
@@ -60,38 +91,50 @@ export default function SleepTrackerPage() {
         setLoading(true);
         toast.promise(
             actionFn().finally(() => setLoading(false)),
-            { loading: loadingMsg, success: (data) => data, error: (err) => `錯誤：${err.message}` }
+            {
+                loading: loadingMsg,
+                success: (data) => data,
+                error: (err) => `錯誤：${err.message}`,
+            }
         );
     };
 
     const handleSleep = () =>
         handleAction(async () => {
-            const { error } = await supabase.from('Sleep').insert([{ sleep_time: new Date().toISOString(), day_type: dayType }]);
+            const taipeiTime = getTaipeiTime(); // e.g., "22:30:05"
+
+            const { error } = await supabase.from('Sleep').insert([{ sleep_time: taipeiTime, day_type: dayType }]);
+
             if (error) throw error;
-            return `已紀錄「${dayType === 'WORKDAY' ? '平日' : '假日'}」睡覺時間`;
+            return `已紀錄「${dayType === 'WORKDAY' ? '平日' : '假日'}」睡覺時間 (${taipeiTime})`;
         }, '正在紀錄...');
 
     const handleWake = () =>
         handleAction(async () => {
+            // Get current Taipei time/date
+            const wakeTimeStr = getTaipeiTime();
+            const { date, weekday } = getTaipeiDateDetails();
+
+            // Fetch latest sleep record
             const { data: latest, error: fetchError } = await supabase
                 .from('Sleep')
                 .select('*')
-                .order('created_at', { ascending: false })
+                .order('created_at', { ascending: false }) // Keep ordering by created_at for reliability
                 .limit(1)
                 .single();
 
             if (fetchError || !latest) throw new Error('找不到任何睡眠紀錄，請先按睡覺。');
             if (latest.wake_time) throw new Error('最新一筆紀錄已結束。');
 
-            const wakeTime = new Date();
-            const durationMinutes = Math.floor((wakeTime.getTime() - new Date(latest.sleep_time).getTime()) / 60000);
+            // Calculate duration using custom logic (Time String Math)
+            const durationMinutes = calculateDurationMinutes(latest.sleep_time, wakeTimeStr);
 
             const { error } = await supabase
                 .from('Sleep')
                 .update({
-                    wake_time: wakeTime.toISOString(),
-                    date: wakeTime.toLocaleDateString('en-CA'),
-                    weekday: wakeTime.toLocaleDateString('zh-TW', { weekday: 'short' }),
+                    wake_time: wakeTimeStr,
+                    date: date, // Taipei Date
+                    weekday: weekday, // Taipei Weekday
                     total: durationMinutes,
                 })
                 .eq('id', latest.id);
