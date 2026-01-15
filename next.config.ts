@@ -11,7 +11,7 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
-    // 你的其他設定...
+    serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
 };
 
 export default withSerwist(nextConfig);

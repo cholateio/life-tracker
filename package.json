@@ -10,22 +10,28 @@
     },
     "dependencies": {
         "@serwist/next": "^9.4.2",
+        "@sparticuz/chromium": "^143.0.4",
         "@supabase/supabase-js": "^2.89.0",
         "clsx": "^2.1.1",
         "lucide-react": "^0.562.0",
         "next": "16.1.1",
+        "puppeteer-core": "^24.35.0",
         "react": "19.2.3",
         "react-dom": "19.2.3",
+        "react-markdown": "^10.1.0",
+        "remark-gfm": "^4.0.1",
         "serwist": "^9.4.2",
         "sonner": "^2.0.7"
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4",
         "@types/node": "^20",
+        "@types/puppeteer": "^5.4.7",
         "@types/react": "^19",
         "@types/react-dom": "^19",
         "eslint": "^9",
         "eslint-config-next": "16.1.1",
+        "puppeteer": "^24.35.0",
         "tailwindcss": "^4",
         "typescript": "^5"
     }
