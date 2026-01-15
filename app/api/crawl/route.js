@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
-import fs from 'fs';
-import path from 'path';
+import { supabase } from '@/lib/supabase';
 
 // --- 環境變數與常數設定 ---
 const isLocal = process.env.NODE_ENV === 'development';
@@ -10,32 +9,7 @@ const BASE_URL = 'https://www.gamer.com.tw/';
 const FORUM_BASE_URL = 'https://forum.gamer.com.tw/';
 const WATCH_BOARDS = ['80099', '81566', '37505', '33651', '29330', '37697', '74604'];
 const FETCH_LIMIT = 15;
-
-// [檔案路徑設定]
-const HISTORY_FILE = path.join(process.cwd(), 'read-history.json');
-const DELETE_FILE = path.join(process.cwd(), 'delete-history.json');
 const EXPIRE_DAYS = 3;
-const DELETE_EXPIRE_DAYS = 3;
-
-// 寫入 JSON 檔案並清理過期
-function updateJsonFile(filePath, url, daysToExpire) {
-    const history = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    const now = Date.now();
-
-    history[url] = now;
-
-    const expireTime = daysToExpire * 24 * 60 * 60 * 1000;
-    const cleanHistory = {};
-    for (const [k, v] of Object.entries(history)) {
-        if (now - v < expireTime) cleanHistory[k] = v;
-    }
-
-    try {
-        fs.writeFileSync(filePath, JSON.stringify(cleanHistory, null, 2), 'utf-8');
-    } catch (error) {
-        console.error(`Failed to write to ${filePath}:`, error);
-    }
-}
 
 // --- 核心爬蟲函式 ---
 async function launchBrowser() {
@@ -90,40 +64,44 @@ async function scrapeBoard(page, boardId) {
         await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('.b-list__row', { timeout: 5000 }).catch(() => null);
 
-        const data = await page.evaluate((limit) => {
-            const nameEl = document.querySelector('a[data-gtm="選單-看板名稱"]');
-            const boardName = nameEl ? nameEl.innerText.trim() : `看板 ${boardId}`;
+        const data = await page.evaluate(
+            (limit, boardId) => {
+                const nameEl = document.querySelector('a[data-gtm="選單-看板名稱"]');
+                const boardName = nameEl ? nameEl.innerText.trim() : `看板 ${boardId}`;
 
-            const rows = document.querySelectorAll('tr.b-list__row');
-            const posts = [];
-            const excludeKeywords = ['集中', '新手', '梗圖', '公告'];
-            const validTimeKeywords = ['剛剛', '分前', '小時前', '昨天'];
+                const rows = document.querySelectorAll('tr.b-list__row');
+                const posts = [];
+                const excludeKeywords = ['集中', '新手', '梗圖', '公告'];
+                const validTimeKeywords = ['剛剛', '分前', '小時前', '昨天'];
 
-            for (const row of rows) {
-                if (posts.length >= limit) break;
-                if (row.classList.contains('b-list__row--sticky')) continue;
+                for (const row of rows) {
+                    if (posts.length >= limit) break;
+                    if (row.classList.contains('b-list__row--sticky')) continue;
 
-                const titleEl = row.querySelector('.b-list__main__title');
-                const timeEl = row.querySelector('.b-list__time__edittime a');
-                const briefEl = row.querySelector('.b-list__brief');
+                    const titleEl = row.querySelector('.b-list__main__title');
+                    const timeEl = row.querySelector('.b-list__time__edittime a');
+                    const briefEl = row.querySelector('.b-list__brief');
 
-                if (!titleEl || !timeEl) continue;
+                    if (!titleEl || !timeEl) continue;
 
-                const title = titleEl.innerText.trim();
-                const time = timeEl.innerText.trim();
+                    const title = titleEl.innerText.trim();
+                    const time = timeEl.innerText.trim();
 
-                if (excludeKeywords.some((k) => title.includes(k))) continue;
-                if (!validTimeKeywords.some((k) => time.includes(k))) continue;
+                    if (excludeKeywords.some((k) => title.includes(k))) continue;
+                    if (!validTimeKeywords.some((k) => time.includes(k))) continue;
 
-                posts.push({
-                    title,
-                    url: titleEl.getAttribute('href') || '',
-                    time,
-                    brief: briefEl ? briefEl.innerText.trim() : '',
-                });
-            }
-            return { name: boardName, posts };
-        }, FETCH_LIMIT);
+                    posts.push({
+                        title,
+                        url: titleEl.getAttribute('href') || '',
+                        time,
+                        brief: briefEl ? briefEl.innerText.trim() : '',
+                    });
+                }
+                return { name: boardName, posts };
+            },
+            FETCH_LIMIT,
+            boardId
+        );
 
         if (data.name === `看板 undefined`) data.name = `看板 ${boardId}`;
         return data;
@@ -160,17 +138,41 @@ export async function GET() {
             boards.push(boardData);
         }
 
-        const readHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf-8'));
-        const deleteHistory = JSON.parse(fs.readFileSync(DELETE_FILE, 'utf-8'));
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - EXPIRE_DAYS);
+
+        const { data: historyData, error } = await supabase
+            .from('Bahamut')
+            .select('url, status, created_at')
+            .gte('created_at', threeDaysAgo.toISOString());
+
+        if (error) console.error('Supabase fetch error:', error);
+
+        const readHistory = new Set();
+        const deleteHistory = new Set();
+        const now = Date.now();
+
+        if (historyData) {
+            historyData.forEach((row) => {
+                const rowTime = new Date(row.created_at).getTime();
+                const daysDiff = (now - rowTime) / (1000 * 60 * 60 * 24);
+
+                if (row.status === 'deleted') {
+                    if (daysDiff <= EXPIRE_DAYS) deleteHistory.add(row.url);
+                } else if (row.status === 'read') {
+                    if (daysDiff <= EXPIRE_DAYS) readHistory.add(row.url);
+                }
+            });
+        }
 
         const filteredBoards = boards.map((board) => {
             return {
                 ...board,
                 posts: board.posts
-                    .filter((post) => !deleteHistory[post.url])
+                    .filter((post) => !deleteHistory.has(post.url))
                     .map((post) => ({
                         ...post,
-                        isRead: !!readHistory[post.url],
+                        isRead: readHistory.has(post.url),
                     })),
             };
         });
@@ -195,16 +197,26 @@ export async function GET() {
 export async function POST(req) {
     try {
         const body = await req.json();
-        const { url, action = 'read' } = body;
+        const { url, action = 'read' } = body; // action: 'read' | 'delete'
 
         if (!url) {
             return NextResponse.json({ success: false, error: 'URL required' }, { status: 400 });
         }
 
-        if (action === 'delete') {
-            updateJsonFile(DELETE_FILE, url, DELETE_EXPIRE_DAYS);
-        } else {
-            updateJsonFile(HISTORY_FILE, url, EXPIRE_DAYS);
+        const status = action === 'delete' ? 'deleted' : 'read';
+
+        const { error } = await supabase.from('Bahamut').upsert(
+            {
+                url,
+                status,
+                created_at: new Date().toISOString(),
+            },
+            { onConflict: 'url' }
+        );
+
+        if (error) {
+            console.error('Supabase error:', error);
+            throw error;
         }
 
         return NextResponse.json({ success: true });
