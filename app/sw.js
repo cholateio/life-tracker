@@ -1,13 +1,5 @@
-/// <reference lib="webworker" />
-// ↑↑↑ 1. 這一行非常重要！必須放在檔案最上面，解決 ServiceWorkerGlobalScope 找不到的問題
-
 import { defaultCache } from '@serwist/next/worker';
-import { type PrecacheEntry, Serwist } from 'serwist';
-
-declare const self: ServiceWorkerGlobalScope & {
-    // 注入編譯後的 manifest 清單
-    __SW_MANIFEST: (PrecacheEntry | string)[];
-};
+import { Serwist } from 'serwist';
 
 const serwist = new Serwist({
     precacheEntries: self.__SW_MANIFEST,

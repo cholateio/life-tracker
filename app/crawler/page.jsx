@@ -1,28 +1,8 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { RefreshCw, Loader2, Link as LinkIcon, ExternalLink, Trash2 } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, Trash2 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
-
-// --- 型別與常數 ---
-interface Post {
-    title: string;
-    url: string;
-    time: string;
-    brief: string;
-    isRead?: boolean;
-}
-
-interface BoardData {
-    name: string;
-    posts: Post[];
-}
-
-interface CrawlerResult {
-    headlines: { title: string; url: string }[];
-    boards: BoardData[];
-    generatedAt: string;
-}
 
 const THEME = {
     primary: '#00bba3',
@@ -31,65 +11,58 @@ const THEME = {
     text: '#2d3538',
 };
 
-// --- [新增] 滑動刪除組件 ---
-const SwipeablePost = ({ children, onDelete }: { children: React.ReactNode; onDelete: () => void }) => {
-    const [startX, setStartX] = useState<number | null>(null);
+// --- 滑動刪除組件 ---
+const SwipeablePost = ({ children, onDelete }) => {
+    const [startX, setStartX] = useState(null);
     const [offsetX, setOffsetX] = useState(0);
     const [isDeleting, setIsDeleting] = useState(false);
-    const elementRef = useRef<HTMLDivElement>(null);
+    const elementRef = useRef(null);
 
-    const handleTouchStart = (e: React.TouchEvent) => {
+    const handleTouchStart = (e) => {
         setStartX(e.touches[0].clientX);
     };
 
-    const handleTouchMove = (e: React.TouchEvent) => {
+    const handleTouchMove = (e) => {
         if (startX === null) return;
         const currentX = e.touches[0].clientX;
         const diff = currentX - startX;
 
-        // 限制只能向左滑 (diff < 0)，且不超過螢幕太多
-        if (diff < 0) {
-            setOffsetX(diff);
-        }
+        if (diff < 0) setOffsetX(diff);
     };
 
     const handleTouchEnd = () => {
-        // [修改 1] 提高刪除門檻：從 -100 改為 -200，需要滑動更遠才會觸發
-        if (offsetX < -400) {
+        if (offsetX < -200) {
             setIsDeleting(true);
-            setOffsetX(-500); // 滑出螢幕的動畫
-            setTimeout(onDelete, 300); // 等待動畫結束後呼叫刪除函數
+            setOffsetX(-500);
+            setTimeout(onDelete, 300);
         } else {
-            setOffsetX(0); // 未達門檻，回彈至原位
+            setOffsetX(0);
         }
         setStartX(null);
     };
 
-    if (isDeleting) return null; // 刪除後不渲染 (實際上會由父層的狀態更新來移除)
+    if (isDeleting) return null;
 
     return (
         <div className="relative overflow-hidden mb-6">
-            {/* [修改 2] 背景層樣式調整 */}
             <div
-                className="absolute inset-0 rounded-lg flex items-center justify-end pr-6" // 將 bg-red-500 改為更柔和的 bg-rose-100
+                className="absolute inset-0 rounded-lg flex items-center justify-end pr-6"
                 style={{
-                    // 根據滑動距離動態調整透明度，讓提示效果更平滑
+                    backgroundColor: '#ede6e1',
                     opacity: Math.min(Math.abs(offsetX) / 200, 1),
                 }}
             >
-                <Trash2 className="text-red-500" size={24} /> {/* 垃圾桶圖示維持紅色，以示警示 */}
+                <Trash2 className="text-red-500" size={24} />
             </div>
 
-            {/* 前景層 (文章內容) */}
             <div
                 ref={elementRef}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                className="relative bg-[#ede6e1] transition-transform duration-200 ease-out rounded-lg" // 增加 rounded-lg 讓前景與背景的圓角一致
+                className="relative bg-[#ede6e1] transition-transform duration-200 ease-out rounded-lg"
                 style={{
                     transform: `translateX(${offsetX}px)`,
-                    // 拖曳時不延遲 (none)，放手回彈時有過渡動畫 (transform 0.3s ease-out)
                     transition: startX !== null ? 'none' : 'transform 0.3s ease-out',
                 }}
             >
@@ -98,18 +71,8 @@ const SwipeablePost = ({ children, onDelete }: { children: React.ReactNode; onDe
         </div>
     );
 };
-// --- 子組件 ---
-const BoardSection = ({
-    title,
-    boards,
-    onPostClick,
-    onPostDelete, // [新增]
-}: {
-    title: string;
-    boards: BoardData[];
-    onPostClick: (url: string) => void;
-    onPostDelete: (url: string) => void; // [新增]
-}) => {
+
+const BoardSection = ({ title, boards, onPostClick, onPostDelete }) => {
     if (!boards || boards.length === 0) return null;
 
     return (
@@ -119,8 +82,8 @@ const BoardSection = ({
             </h2>
 
             {boards.map((board) => (
-                <div key={board.name} className="mb-6 animate-in fade-in duration-500">
-                    <div className="sticky top-0 z-10 bg-[#ede6e1]/95 backdrop-blur-sm py-2 mb-3 border-b border-white/20">
+                <div key={board.name} className="mb-4 animate-in fade-in duration-500">
+                    <div className="sticky top-0 z-10 bg-[#ede6e1]/95 backdrop-blur-sm py-2 mb-6 border-b border-white/20">
                         <div className="inline-flex items-center gap-1 bg-[#cbd7d6] text-[#2c3e3c] px-3 py-1 rounded-full text-sm font-bold shadow-sm">
                             🏷️ {board.name}
                         </div>
@@ -129,11 +92,8 @@ const BoardSection = ({
                     <div className="flex flex-col">
                         {board.posts.length > 0 ? (
                             board.posts.map((post, index) => (
-                                // [修改] 包裹 SwipeablePost
                                 <SwipeablePost key={`${post.url}-${index}`} onDelete={() => onPostDelete(post.url)}>
                                     <div className="group pb-2">
-                                        {' '}
-                                        {/* 增加 pb-2 讓滑動手勢好操作一點 */}
                                         <div className="flex justify-between items-baseline gap-3">
                                             <a
                                                 href={
@@ -171,13 +131,11 @@ const BoardSection = ({
     );
 };
 
-// --- 主頁面組件 ---
 export default function CrawlerPage() {
     const [loading, setLoading] = useState(false);
-    const [data, setData] = useState<CrawlerResult | null>(null);
+    const [data, setData] = useState(null);
 
-    // 處理點擊 (已讀)
-    const handlePostClick = async (url: string) => {
+    const handlePostClick = async (url) => {
         if (!data) return;
 
         const newData = { ...data };
@@ -200,18 +158,16 @@ export default function CrawlerPage() {
             await fetch('/api/crawl', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, action: 'read' }), // [修改] 加入 action
+                body: JSON.stringify({ url, action: 'read' }),
             });
         } catch (e) {
             console.error('Failed to mark as read', e);
         }
     };
 
-    // [新增] 處理刪除
-    const handlePostDelete = async (url: string) => {
+    const handlePostDelete = async (url) => {
         if (!data) return;
 
-        // 1. 樂觀更新：直接從 UI 移除
         const newData = {
             ...data,
             boards: data.boards.map((board) => ({
@@ -223,12 +179,11 @@ export default function CrawlerPage() {
         setData(newData);
         toast.success('已隱藏文章');
 
-        // 2. 背景 API 請求
         try {
             await fetch('/api/crawl', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, action: 'delete' }), // 指定 action: delete
+                body: JSON.stringify({ url, action: 'delete' }),
             });
         } catch (e) {
             console.error('Failed to delete post', e);
@@ -247,9 +202,9 @@ export default function CrawlerPage() {
             const json = await res.json();
             if (!json.success) throw new Error(json.error || 'Unknown Error');
 
-            setData(json.data as CrawlerResult);
+            setData(json.data);
             toast.success('更新完成', { id: toastId });
-        } catch (error: unknown) {
+        } catch (error) {
             const errorMessage = error instanceof Error ? error.message : '爬取失敗，請稍後再試';
             console.error(error);
             toast.error(errorMessage, { id: toastId });
@@ -261,7 +216,7 @@ export default function CrawlerPage() {
     return (
         <div
             className="min-h-screen flex flex-col items-center p-4 transition-colors duration-500 overflow-y-auto font-sans"
-            style={{ backgroundColor: THEME.bg, overflowX: 'hidden' }} // 增加 overflowX: hidden 避免滑動時頁面晃動
+            style={{ backgroundColor: THEME.bg, overflowX: 'hidden' }}
         >
             <Toaster position="top-center" richColors />
 
@@ -312,7 +267,6 @@ export default function CrawlerPage() {
                         </div>
                     )}
 
-                    {/* [修改] 傳入 onPostDelete */}
                     <BoardSection
                         title="📌 追蹤看板動態"
                         boards={data.boards}

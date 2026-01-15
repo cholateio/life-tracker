@@ -15,15 +15,14 @@ const GENRE_OPTIONS = [
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 export default function MilestonePage() {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
     const [isGenreOpen, setIsGenreOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-    const genreRef = useRef<HTMLDivElement>(null);
-    const dateRef = useRef<HTMLDivElement>(null);
+    const genreRef = useRef(null);
+    const dateRef = useRef(null);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -38,34 +37,33 @@ export default function MilestonePage() {
     const commonInputStyles =
         'w-full bg-transparent text-lg font-bold text-[#3f4a4e] placeholder-[#3f4a4e]/20 outline-none pb-3 border-b-2 border-[#3f4a4e]/20 focus:border-[#3f4a4e] transition-all duration-300 rounded-none';
 
-    // --- Effect & Handlers ---
     useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (genreRef.current && !genreRef.current.contains(event.target as Node)) setIsGenreOpen(false);
-            if (dateRef.current && !dateRef.current.contains(event.target as Node)) setIsCalendarOpen(false);
+        function handleClickOutside(event) {
+            if (genreRef.current && !genreRef.current.contains(event.target)) setIsGenreOpen(false);
+            if (dateRef.current && !dateRef.current.contains(event.target)) setIsCalendarOpen(false);
         }
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleGenreSelect = (value: string) => {
+    const handleGenreSelect = (value) => {
         setFormData((prev) => ({ ...prev, genre: value }));
         setIsGenreOpen(false);
     };
 
-    const handleDateSelect = (day: number) => {
+    const handleDateSelect = (day) => {
         const monthStr = (navDate.getMonth() + 1).toString().padStart(2, '0');
         const dayStr = day.toString().padStart(2, '0');
         setFormData((prev) => ({ ...prev, date: `${navDate.getFullYear()}-${monthStr}-${dayStr}` }));
         setIsCalendarOpen(false);
     };
 
-    const changeMonth = (offset: number) => {
+    const changeMonth = (offset) => {
         setNavDate((prev) => {
             const newDate = new Date(prev);
             newDate.setMonth(newDate.getMonth() + offset);
@@ -73,7 +71,7 @@ export default function MilestonePage() {
         });
     };
 
-    const getDaysInMonth = (date: Date) => {
+    const getDaysInMonth = (date) => {
         const year = date.getFullYear();
         const month = date.getMonth();
         return {
@@ -86,12 +84,12 @@ export default function MilestonePage() {
 
     const { daysInMonth, firstDayOfMonth, year, month } = getDaysInMonth(navDate);
 
-    const isSelectedDate = (d: number) => {
+    const isSelectedDate = (d) => {
         const target = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
         return formData.date === target;
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
@@ -111,7 +109,7 @@ export default function MilestonePage() {
 
     const currentGenre = GENRE_OPTIONS.find((g) => g.value === formData.genre) || GENRE_OPTIONS[0];
 
-    const Label = ({ children }: { children: React.ReactNode }) => (
+    const Label = ({ children }) => (
         <label className="block text-xs font-extrabold uppercase tracking-[0.15em] text-[#3f4a4e]/50 mb-2 pl-1">{children}</label>
     );
 
@@ -146,7 +144,6 @@ export default function MilestonePage() {
                             {formData.date.replace(/-/g, '.')}
                         </button>
 
-                        {/* Calendar Popup */}
                         {isCalendarOpen && (
                             <div className="absolute top-full left-0 mt-2 p-4 bg-[#FAF8F5] rounded-xl shadow-xl shadow-[#3f4a4e]/10 border border-[#3f4a4e]/5 z-50 animate-in fade-in slide-in-from-top-2 w-[280px]">
                                 <div className="flex items-center justify-between mb-4">
@@ -205,7 +202,6 @@ export default function MilestonePage() {
                         )}
                     </div>
 
-                    {/* Genre Section */}
                     <div className="group relative" ref={genreRef}>
                         <Label>Genre</Label>
                         <button
@@ -222,7 +218,6 @@ export default function MilestonePage() {
                             />
                         </button>
 
-                        {/* Genre Dropdown */}
                         {isGenreOpen && (
                             <div className="absolute top-full left-0 right-0 mt-2 bg-[#FAF8F5] rounded-xl shadow-xl shadow-[#3f4a4e]/10 border border-[#3f4a4e]/5 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
                                 {GENRE_OPTIONS.map((opt) => (
@@ -267,7 +262,6 @@ export default function MilestonePage() {
                     />
                 </div>
 
-                {/* Submit Button */}
                 <div className="pt-4 pb-8">
                     <button
                         type="submit"

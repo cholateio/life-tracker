@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Moon, Sun, Briefcase, Coffee, Loader2, LucideIcon } from 'lucide-react';
+import { Moon, Sun, Briefcase, Coffee, Loader2 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 // --- Helper: Get Taipei Time String (HH:mm:ss) ---
@@ -23,8 +23,8 @@ const getTaipeiDateDetails = () => {
 };
 
 // --- Helper: Calculate Duration between two time strings ---
-const calculateDurationMinutes = (startTime: string, endTime: string) => {
-    const parseMinutes = (timeStr: string) => {
+const calculateDurationMinutes = (startTime, endTime) => {
+    const parseMinutes = (timeStr) => {
         const [h, m] = timeStr.split(':').map(Number);
         return h * 60 + m;
     };
@@ -37,17 +37,7 @@ const calculateDurationMinutes = (startTime: string, endTime: string) => {
     return end - start;
 };
 
-const ActionButton = ({
-    onClick,
-    disabled,
-    color,
-    Icon,
-}: {
-    onClick: () => void;
-    disabled: boolean;
-    color: string;
-    Icon: LucideIcon;
-}) => (
+const ActionButton = ({ onClick, disabled, color, Icon }) => (
     <button
         onClick={onClick}
         disabled={disabled}
@@ -61,17 +51,7 @@ const ActionButton = ({
     </button>
 );
 
-const ToggleButton = ({
-    active,
-    onClick,
-    Icon,
-    activeColor,
-}: {
-    active: boolean;
-    onClick: () => void;
-    Icon: LucideIcon;
-    activeColor: string;
-}) => (
+const ToggleButton = ({ active, onClick, Icon, activeColor }) => (
     <button
         onClick={onClick}
         className={`flex-1 py-3 rounded-full text-base font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
@@ -84,9 +64,9 @@ const ToggleButton = ({
 
 export default function SleepTrackerPage() {
     const [loading, setLoading] = useState(false);
-    const [dayType, setDayType] = useState<'WORKDAY' | 'HOLIDAY'>('WORKDAY');
+    const [dayType, setDayType] = useState('WORKDAY');
 
-    const handleAction = async (actionFn: () => Promise<string>, loadingMsg: string) => {
+    const handleAction = async (actionFn, loadingMsg) => {
         if (loading) return;
         setLoading(true);
         toast.promise(
@@ -101,7 +81,7 @@ export default function SleepTrackerPage() {
 
     const handleSleep = () =>
         handleAction(async () => {
-            const taipeiTime = getTaipeiTime(); // e.g., "22:30:05"
+            const taipeiTime = getTaipeiTime();
 
             const { error } = await supabase.from('Sleep').insert([{ sleep_time: taipeiTime, day_type: dayType }]);
 
@@ -111,30 +91,27 @@ export default function SleepTrackerPage() {
 
     const handleWake = () =>
         handleAction(async () => {
-            // Get current Taipei time/date
             const wakeTimeStr = getTaipeiTime();
             const { date, weekday } = getTaipeiDateDetails();
 
-            // Fetch latest sleep record
             const { data: latest, error: fetchError } = await supabase
                 .from('Sleep')
                 .select('*')
-                .order('created_at', { ascending: false }) // Keep ordering by created_at for reliability
+                .order('created_at', { ascending: false })
                 .limit(1)
                 .single();
 
             if (fetchError || !latest) throw new Error('找不到任何睡眠紀錄，請先按睡覺。');
             if (latest.wake_time) throw new Error('最新一筆紀錄已結束。');
 
-            // Calculate duration using custom logic (Time String Math)
             const durationMinutes = calculateDurationMinutes(latest.sleep_time, wakeTimeStr);
 
             const { error } = await supabase
                 .from('Sleep')
                 .update({
                     wake_time: wakeTimeStr,
-                    date: date, // Taipei Date
-                    weekday: weekday, // Taipei Weekday
+                    date: date,
+                    weekday: weekday,
                     total: durationMinutes,
                 })
                 .eq('id', latest.id);
@@ -162,7 +139,6 @@ export default function SleepTrackerPage() {
                 }}
             />
 
-            {/* 切換器 */}
             <div className="bg-[#dcd6d1] p-1.5 rounded-full flex w-full max-w-xs shadow-inner">
                 <ToggleButton
                     active={dayType === 'WORKDAY'}
@@ -178,7 +154,6 @@ export default function SleepTrackerPage() {
                 />
             </div>
 
-            {/* 大按鈕區域 */}
             <ActionButton onClick={handleSleep} disabled={loading} Icon={Moon} color="bg-[#3f4a4e] shadow-[#3f4a4e]/20" />
             <ActionButton onClick={handleWake} disabled={loading} Icon={Sun} color="bg-[#c2785c] shadow-[#c2785c]/20" />
         </div>
