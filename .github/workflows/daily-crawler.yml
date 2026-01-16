@@ -1,0 +1,37 @@
+name: Daily Crawler
+
+on:
+    schedule:
+        # 每天 UTC 22:00 (台灣時間早上 06:00) 執行
+        - cron: '0 22 * * *'
+    # 允許手動在 GitHub 網頁上觸發
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+jobs:
+    crawl-and-commit:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+
+            - name: Install dependencies
+              run: npm install
+
+            - name: Run Crawler Script
+              run: node scripts/crawl-to-file.mjs
+
+            - name: Commit and Push changes
+              uses: stefanzweifel/git-auto-commit-action@v5
+              with:
+                  commit_message: '🤖 Daily crawl update [skip ci]'
+                  file_pattern: 'public/daily-news.json'

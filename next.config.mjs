@@ -9,8 +9,6 @@ const withSerwist = withSerwistInit({
     disable: process.env.NODE_ENV === 'development',
 });
 
-const nextConfig = {
-    serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
-};
+const nextConfig = {};
 
 export default withSerwist(nextConfig);

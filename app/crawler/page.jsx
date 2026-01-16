@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { RefreshCw, Loader2, ExternalLink, Trash2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Loader2, ExternalLink, Trash2 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 const THEME = {
     primary: '#00bba3',
@@ -27,16 +28,20 @@ const SwipeablePost = ({ children, onDelete }) => {
         const currentX = e.touches[0].clientX;
         const diff = currentX - startX;
 
-        if (diff < 0) setOffsetX(diff);
+        // 限制只能向左滑 (diff < 0)
+        if (diff < 0) {
+            setOffsetX(diff);
+        }
     };
 
     const handleTouchEnd = () => {
+        // 滑動超過 200px 觸發刪除
         if (offsetX < -200) {
             setIsDeleting(true);
-            setOffsetX(-500);
+            setOffsetX(-500); // 滑出動畫
             setTimeout(onDelete, 300);
         } else {
-            setOffsetX(0);
+            setOffsetX(0); // 回彈
         }
         setStartX(null);
     };
@@ -45,16 +50,18 @@ const SwipeablePost = ({ children, onDelete }) => {
 
     return (
         <div className="relative overflow-hidden mb-6">
+            {/* 背景層 (紅色垃圾桶) */}
             <div
                 className="absolute inset-0 rounded-lg flex items-center justify-end pr-6"
                 style={{
-                    backgroundColor: '#ede6e1',
+                    backgroundColor: '#ffe4e6', // bg-rose-100
                     opacity: Math.min(Math.abs(offsetX) / 200, 1),
                 }}
             >
                 <Trash2 className="text-red-500" size={24} />
             </div>
 
+            {/* 前景層 (文章內容) */}
             <div
                 ref={elementRef}
                 onTouchStart={handleTouchStart}
@@ -72,6 +79,7 @@ const SwipeablePost = ({ children, onDelete }) => {
     );
 };
 
+// --- 子組件: 看板區塊 ---
 const BoardSection = ({ title, boards, onPostClick, onPostDelete }) => {
     if (!boards || boards.length === 0) return null;
 
@@ -82,8 +90,8 @@ const BoardSection = ({ title, boards, onPostClick, onPostDelete }) => {
             </h2>
 
             {boards.map((board) => (
-                <div key={board.name} className="mb-4 animate-in fade-in duration-500">
-                    <div className="sticky top-0 z-10 bg-[#ede6e1]/95 backdrop-blur-sm py-2 mb-6 border-b border-white/20">
+                <div key={board.name} className="mb-6 animate-in fade-in duration-500">
+                    <div className="sticky top-0 z-10 bg-[#ede6e1]/95 backdrop-blur-sm py-2 mb-3 border-b border-white/20">
                         <div className="inline-flex items-center gap-1 bg-[#cbd7d6] text-[#2c3e3c] px-3 py-1 rounded-full text-sm font-bold shadow-sm">
                             🏷️ {board.name}
                         </div>
@@ -131,85 +139,112 @@ const BoardSection = ({ title, boards, onPostClick, onPostDelete }) => {
     );
 };
 
+// --- 主頁面組件 ---
 export default function CrawlerPage() {
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
 
+    // 初始化：讀取靜態 JSON + Supabase 紀錄
+    useEffect(() => {
+        const initData = async () => {
+            try {
+                // 1. 讀取 GitHub Actions 生成的靜態資料
+                const jsonRes = await fetch('/daily-news.json');
+                if (!jsonRes.ok) {
+                    // 如果檔案不存在 (例如第一次部署尚未執行 Actions)，給一個空資料或提示
+                    console.warn('daily-news.json not found');
+                    throw new Error('日報尚未生成，請稍後再試');
+                }
+                const jsonData = await jsonRes.json();
+
+                // 2. 讀取 Supabase 的個人紀錄 (最近 3 天)
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 3);
+
+                const { data: historyData, error } = await supabase
+                    .from('Bahamut')
+                    .select('url, status')
+                    .gte('created_at', thirtyDaysAgo.toISOString());
+
+                if (error) console.error('Supabase fetch error:', error);
+
+                const readSet = new Set();
+                const deleteSet = new Set();
+
+                if (historyData) {
+                    historyData.forEach((row) => {
+                        if (row.status === 'read') readSet.add(row.url);
+                        if (row.status === 'deleted') deleteSet.add(row.url);
+                    });
+                }
+
+                const processedBoards = jsonData.boards.map((board) => ({
+                    ...board,
+                    posts: board.posts
+                        .filter((post) => !deleteSet.has(post.url))
+                        .map((post) => ({
+                            ...post,
+                            isRead: readSet.has(post.url),
+                        })),
+                }));
+
+                setData({
+                    ...jsonData,
+                    boards: processedBoards,
+                });
+            } catch (error) {
+                console.error(error);
+                toast.error('讀取資料失敗，請確認日報是否已生成');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initData();
+    }, []);
+
+    // 處理點擊 (已讀)
     const handlePostClick = async (url) => {
         if (!data) return;
 
-        const newData = { ...data };
-        let found = false;
-
-        newData.boards = newData.boards.map((board) => ({
-            ...board,
-            posts: board.posts.map((post) => {
-                if (post.url === url) {
-                    found = true;
-                    return { ...post, isRead: true };
-                }
-                return post;
-            }),
+        setData((prev) => ({
+            ...prev,
+            boards: prev.boards.map((board) => ({
+                ...board,
+                posts: board.posts.map((post) => (post.url === url ? { ...post, isRead: true } : post)),
+            })),
         }));
 
-        if (found) setData(newData);
-
         try {
-            await fetch('/api/crawl', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, action: 'read' }),
-            });
+            await supabase
+                .from('Bahamut')
+                .upsert({ url, status: 'read', created_at: new Date().toISOString() }, { onConflict: 'url' });
         } catch (e) {
-            console.error('Failed to mark as read', e);
+            console.error('Failed to mark read:', e);
         }
     };
 
+    // 處理刪除 (隱藏)
     const handlePostDelete = async (url) => {
         if (!data) return;
 
-        const newData = {
-            ...data,
-            boards: data.boards.map((board) => ({
+        setData((prev) => ({
+            ...prev,
+            boards: prev.boards.map((board) => ({
                 ...board,
                 posts: board.posts.filter((post) => post.url !== url),
             })),
-        };
+        }));
 
-        setData(newData);
         toast.success('已隱藏文章');
 
         try {
-            await fetch('/api/crawl', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, action: 'delete' }),
-            });
+            await supabase
+                .from('Bahamut')
+                .upsert({ url, status: 'deleted', created_at: new Date().toISOString() }, { onConflict: 'url' });
         } catch (e) {
-            console.error('Failed to delete post', e);
-            toast.error('隱藏失敗');
-        }
-    };
-
-    const handleCrawl = async () => {
-        setLoading(true);
-        const toastId = toast.loading('正在爬取巴哈姆特資料...');
-
-        try {
-            const res = await fetch('/api/crawl');
-            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-
-            const json = await res.json();
-            if (!json.success) throw new Error(json.error || 'Unknown Error');
-
-            setData(json.data);
-            toast.success('更新完成', { id: toastId });
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : '爬取失敗，請稍後再試';
-            console.error(error);
-            toast.error(errorMessage, { id: toastId });
-        } finally {
-            setLoading(false);
+            console.error('Failed to delete:', e);
+            toast.error('同步失敗，但已在本地隱藏');
         }
     };
 
@@ -221,27 +256,25 @@ export default function CrawlerPage() {
             <Toaster position="top-center" richColors />
 
             <div className="w-full max-w-xl mt-4 mb-8">
-                <button
-                    onClick={handleCrawl}
-                    disabled={loading}
-                    className="w-full text-white rounded-xl py-3 font-bold text-base shadow-lg shadow-[#00bba3]/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: loading ? THEME.hover : THEME.primary }}
+                {/* 靜態標題區塊 */}
+                <div
+                    className="w-full text-white rounded-xl py-3 font-bold text-base shadow-lg shadow-[#00bba3]/20 flex items-center justify-center gap-2"
+                    style={{ backgroundColor: THEME.primary }}
                 >
-                    {loading ? (
-                        <Loader2 size={20} className="animate-spin" />
-                    ) : (
-                        <RefreshCw
-                            size={20}
-                            strokeWidth={2.5}
-                            className="group-hover:rotate-180 transition-transform duration-700"
-                        />
-                    )}
-                    <span>{loading ? '資料同步中...' : '更新日報'}</span>
-                </button>
+                    <span>📅 巴哈日報</span>
+                </div>
             </div>
 
-            {data && (
+            {loading && (
+                <div className="py-20 flex flex-col items-center text-gray-400 gap-2">
+                    <Loader2 className="animate-spin" />
+                    <span>載入今日快訊...</span>
+                </div>
+            )}
+
+            {!loading && data && (
                 <div className="w-full max-w-xl pb-20 animate-in slide-in-from-bottom-4 duration-500">
+                    {/* 頭條區域 */}
                     {data.headlines.length > 0 && (
                         <div className="mb-8">
                             <h2 className="text-xl font-black text-[#2d3538] mb-4 border-b-4 border-[#00bba3]/20 pb-2">
@@ -267,6 +300,7 @@ export default function CrawlerPage() {
                         </div>
                     )}
 
+                    {/* 看板區域 */}
                     <BoardSection
                         title="📌 追蹤看板動態"
                         boards={data.boards}
