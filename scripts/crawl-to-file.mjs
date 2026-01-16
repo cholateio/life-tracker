@@ -2,20 +2,16 @@ import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { CONFIG } from './config.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BASE_URL = 'https://www.gamer.com.tw/';
-const FORUM_BASE_URL = 'https://forum.gamer.com.tw/';
-const WATCH_BOARDS = ['80099', '81566', '37505', '33651', '29330', '37697', '74604'];
-const FETCH_LIMIT = 15;
-
 async function scrapeHeadlines(page) {
     console.log('正在爬取頭條...');
     try {
-        await page.goto(BASE_URL, { waitUntil: 'networkidle2', timeout: 60000 });
-        await page.waitForSelector('.headline-news__wrapper', { timeout: 10000 });
+        await page.goto(CONFIG.BASE_URL, { waitUntil: 'networkidle2', timeout: CONFIG.TIMEOUT.PAGE_LOAD });
+        await page.waitForSelector('.headline-news__wrapper', { timeout: CONFIG.TIMEOUT.SELECTOR });
 
         return await page.evaluate(() => {
             const items = [];
@@ -34,11 +30,30 @@ async function scrapeHeadlines(page) {
 
 async function scrapeBoard(page, boardId) {
     console.log(`正在爬取看板 ${boardId}...`);
-    const targetUrl = `${FORUM_BASE_URL}B.php?bsn=${boardId}`;
+    const targetUrl = `${CONFIG.FORUM_BASE_URL}B.php?bsn=${boardId}`;
 
     try {
-        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await page.waitForSelector('.b-list__row', { timeout: 10000 });
+        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: CONFIG.TIMEOUT.BOARD_LOAD });
+
+        // --- 自動過濾 18+ 驗證頁面 ---
+        try {
+            // 檢查頁面上是否有 ID 為 'adult' 的按鈕 (巴哈姆特標準的 18+ 同意按鈕)
+            const adultBtn = await page.$('#adult');
+            if (adultBtn) {
+                console.log(`⚠️ 看板 ${boardId} 觸發 18+ 驗證，正在繞過...`);
+                await Promise.all([
+                    // 點擊後等待頁面跳轉完成
+                    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }),
+                    adultBtn.click(),
+                ]);
+            }
+        } catch (e) {
+            console.log(`看板 ${boardId} 18+ 驗證處理時發生微小錯誤 (通常可忽略): ${e.message}`);
+        }
+        // -----------------------------------
+
+        // 現在再等待列表出現
+        await page.waitForSelector('.b-list__row', { timeout: CONFIG.TIMEOUT.SELECTOR });
 
         const data = await page.evaluate(
             (limit, boardId) => {
@@ -47,7 +62,7 @@ async function scrapeBoard(page, boardId) {
 
                 const rows = document.querySelectorAll('tr.b-list__row');
                 const posts = [];
-                const excludeKeywords = ['集中', '新手', '梗圖', '公告'];
+                const excludeKeywords = CONFIG.BAN_KEYWORD;
                 const validTimeKeywords = ['剛剛', '分前', '小時前', '昨天'];
 
                 for (const row of rows) {
@@ -75,7 +90,7 @@ async function scrapeBoard(page, boardId) {
                 }
                 return { name: boardName, posts };
             },
-            FETCH_LIMIT,
+            CONFIG.FETCH_LIMIT,
             boardId
         );
 
@@ -99,7 +114,7 @@ async function scrapeBoard(page, boardId) {
 
         const headlines = await scrapeHeadlines(page);
         const boards = [];
-        for (const boardId of WATCH_BOARDS) {
+        for (const boardId of CONFIG.WATCH_BOARDS) {
             const boardData = await scrapeBoard(page, boardId);
             boards.push(boardData);
             await new Promise((r) => setTimeout(r, 2000)); // 禮貌性延遲
