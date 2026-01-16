@@ -56,13 +56,13 @@ async function scrapeBoard(page, boardId) {
         await page.waitForSelector('.b-list__row', { timeout: CONFIG.TIMEOUT.SELECTOR });
 
         const data = await page.evaluate(
-            (limit, boardId) => {
+            (limit, boardId, banKeywords) => {
                 const nameEl = document.querySelector('a[data-gtm="選單-看板名稱"]');
                 const boardName = nameEl ? nameEl.innerText.trim() : '看板 ' + boardId;
 
                 const rows = document.querySelectorAll('tr.b-list__row');
                 const posts = [];
-                const excludeKeywords = CONFIG.BAN_KEYWORD;
+                const excludeKeywords = banKeywords;
                 const validTimeKeywords = ['剛剛', '分前', '小時前', '昨天'];
 
                 for (const row of rows) {
@@ -91,7 +91,8 @@ async function scrapeBoard(page, boardId) {
                 return { name: boardName, posts };
             },
             CONFIG.FETCH_LIMIT,
-            boardId
+            boardId,
+            CONFIG.BAN_KEYWORD,
         );
 
         return data;
