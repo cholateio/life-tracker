@@ -33,10 +33,21 @@ async function scrapeBoard(page, boardId) {
     const targetUrl = `${CONFIG.FORUM_BASE_URL}B.php?bsn=${boardId}`;
 
     try {
-        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: CONFIG.TIMEOUT.BOARD_LOAD });
+        const response = await page.goto(targetUrl, {
+            waitUntil: 'domcontentloaded',
+            timeout: CONFIG.TIMEOUT.BOARD_LOAD,
+        });
+        // [Debug] 檢查 HTTP 狀態碼
+        if (response && response.status() !== 200) {
+            console.warn(`⚠️ 看板 ${boardId} 回傳狀態碼: ${response.status()}`);
+        }
 
         // --- 自動過濾 18+ 驗證頁面 ---
         try {
+            const pageTitle = await page.title();
+            if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
+                throw new Error('Cloudflare Challenge Triggered');
+            }
             // 檢查頁面上是否有 ID 為 'adult' 的按鈕 (巴哈姆特標準的 18+ 同意按鈕)
             const adultBtn = await page.$('#adult');
             if (adultBtn) {
@@ -46,6 +57,7 @@ async function scrapeBoard(page, boardId) {
                     page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }),
                     adultBtn.click(),
                 ]);
+                console.log(`✅ 看板 ${boardId} 18+ 驗證點擊完成`);
             }
         } catch (e) {
             console.log(`看板 ${boardId} 18+ 驗證處理時發生微小錯誤 (通常可忽略): ${e.message}`);
@@ -97,7 +109,33 @@ async function scrapeBoard(page, boardId) {
 
         return data;
     } catch (e) {
-        console.error(`Error scraping board ${boardId}:`, e.message);
+        // =========== [關鍵 Debug 區域] ===========
+        console.error(`❌ Error scraping board ${boardId}: ${e.message}`);
+
+        try {
+            // 1. 印出最後停留的網址 (確認是否被轉址)
+            const currentUrl = page.url();
+            console.error(`   👉 Current URL: ${currentUrl}`);
+
+            // 2. 印出網頁標題 (確認是否為 18+ 警告頁或 Cloudflare)
+            const title = await page.title();
+            console.error(`   👉 Page Title: "${title}"`);
+
+            // 3. 印出頁面內容的前 500 個字 (看 HTML 結構)
+            // 這能讓你看到頁面上到底顯示了什麼文字 (例如 "未滿18歲" 或 "Access denied")
+            const content = await page.content();
+            const cleanContent = content.replace(/\s+/g, ' ').substring(0, 500); // 壓縮空白並取前500字
+            console.error(`   👉 HTML Snapshot (Top 500 chars): ${cleanContent}`);
+
+            // 4. 特別檢查是否還停留在 18+ 頁面
+            const hasAdultBtn = await page.$('#adult');
+            if (hasAdultBtn) {
+                console.error(`   👉 [診斷] 頁面上仍存在 18+ 按鈕，代表點擊失敗或頁面重整了。`);
+            }
+        } catch (debugError) {
+            console.error(`   (Debug info failed: ${debugError.message})`);
+        }
+        // =======================================
         return { name: `看板 ${boardId} (Error)`, posts: [] };
     }
 }
