@@ -113,6 +113,11 @@ async function scrapeBoard(page, boardId) {
     try {
         const page = await browser.newPage();
 
+        await page.setUserAgent({
+            userAgent:
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        });
+
         const headlines = await scrapeHeadlines(page);
         const boards = [];
         for (const boardId of CONFIG.WATCH_BOARDS) {
