@@ -11,8 +11,8 @@ export const CONFIG = {
     // 逾時設定 (毫秒)
     TIMEOUT: {
         PAGE_LOAD: 60000,
-        SELECTOR: 30000,
-        BOARD_LOAD: 60000,
+        SELECTOR: 20000,
+        BOARD_LOAD: 30000,
     },
 
     // 要追蹤的看板列表 (可以在這裡寫註解備註看板名稱)

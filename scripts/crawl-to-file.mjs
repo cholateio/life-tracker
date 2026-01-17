@@ -1,8 +1,12 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { CONFIG } from './config.mjs';
+
+// 掛載隱形插件 (這是繞過 Cloudflare 的關鍵)
+puppeteer.use(StealthPlugin());
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,38 +37,31 @@ async function scrapeBoard(page, boardId) {
     const targetUrl = `${CONFIG.FORUM_BASE_URL}B.php?bsn=${boardId}`;
 
     try {
+        // 使用 networkidle2 讓 Cloudflare 有時間跑完驗證腳本
         const response = await page.goto(targetUrl, {
-            waitUntil: 'domcontentloaded',
+            waitUntil: 'networkidle2',
             timeout: CONFIG.TIMEOUT.BOARD_LOAD,
         });
-        // [Debug] 檢查 HTTP 狀態碼
-        if (response && response.status() !== 200) {
-            console.warn(`⚠️ 看板 ${boardId} 回傳狀態碼: ${response.status()}`);
+
+        // 檢查是否遇到 403 (Cloudflare Block)
+        if (response && response.status() === 403) {
+            console.warn(`⚠️ 看板 ${boardId} 遭遇 403 Forbidden，嘗試等待 Cloudflare 驗證...`);
+            // 給它一點時間讓 Stealth Plugin 發揮作用自動跳轉
+            await new Promise((r) => setTimeout(r, 5000));
         }
 
-        // --- 自動過濾 18+ 驗證頁面 ---
+        // --- 18+ 驗證繞過 ---
         try {
-            const pageTitle = await page.title();
-            if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
-                throw new Error('Cloudflare Challenge Triggered');
-            }
-            // 檢查頁面上是否有 ID 為 'adult' 的按鈕 (巴哈姆特標準的 18+ 同意按鈕)
             const adultBtn = await page.$('#adult');
             if (adultBtn) {
                 console.log(`⚠️ 看板 ${boardId} 觸發 18+ 驗證，正在繞過...`);
-                await Promise.all([
-                    // 點擊後等待頁面跳轉完成
-                    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }),
-                    adultBtn.click(),
-                ]);
-                console.log(`✅ 看板 ${boardId} 18+ 驗證點擊完成`);
+                await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }), adultBtn.click()]);
             }
         } catch (e) {
-            console.log(`看板 ${boardId} 18+ 驗證處理時發生微小錯誤 (通常可忽略): ${e.message}`);
+            // 忽略找不到按鈕的錯誤
         }
-        // -----------------------------------
+        // ------------------
 
-        // 現在再等待列表出現
         await page.waitForSelector('.b-list__row', { timeout: CONFIG.TIMEOUT.SELECTOR });
 
         const data = await page.evaluate(
@@ -136,24 +133,36 @@ async function scrapeBoard(page, boardId) {
             console.error(`   (Debug info failed: ${debugError.message})`);
         }
         // =======================================
+        // 如果失敗，回傳空資料避免中斷整個流程
         return { name: `看板 ${boardId} (Error)`, posts: [] };
     }
 }
 
 // 主程式
 (async () => {
-    console.log('🚀 啟動 GitHub Worker 爬蟲...');
+    console.log('🚀 啟動 GitHub Worker 爬蟲 (Stealth Mode Enabled)...');
+
     const browser = await puppeteer.launch({
         headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
     });
 
     try {
         const page = await browser.newPage();
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => false,
+            });
+        });
 
-        await page.setUserAgent({
-            userAgent:
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        await page.setViewport({ width: 1920, height: 1080 });
+        await page.setUserAgent(
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        );
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Accept-Encoding': 'gzip, deflate, br',
+            Referer: 'https://www.gamer.com.tw/', // 告訴它我們是從首頁連過去的，不是憑空出現
         });
 
         const headlines = await scrapeHeadlines(page);
@@ -161,7 +170,9 @@ async function scrapeBoard(page, boardId) {
         for (const boardId of CONFIG.WATCH_BOARDS) {
             const boardData = await scrapeBoard(page, boardId);
             boards.push(boardData);
-            await new Promise((r) => setTimeout(r, 2000)); // 禮貌性延遲
+            // 隨機延遲 3~6 秒，模仿人類閱讀節奏 (Cloudflare 喜歡這種行為)
+            const delay = Math.floor(Math.random() * 3000) + 3000;
+            await new Promise((r) => setTimeout(r, delay));
         }
 
         const output = {
@@ -171,6 +182,11 @@ async function scrapeBoard(page, boardId) {
         };
 
         const outputPath = path.join(__dirname, '../public/daily-news.json');
+        const publicDir = path.dirname(outputPath);
+        if (!fs.existsSync(publicDir)) {
+            fs.mkdirSync(publicDir, { recursive: true });
+        }
+
         fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
         console.log(`✅ 資料已寫入: ${outputPath}`);
     } catch (error) {
