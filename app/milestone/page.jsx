@@ -1,284 +1,123 @@
+// app/milestone-record/page.jsx
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Save, Loader2, ChevronDown, Check, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Toaster, toast } from 'sonner';
+import { toast } from 'sonner';
+
+import RecordPageLayout from '@/components/layout/RecordPageLayout';
+import { FormInput } from '@/components/ui/FormInput';
+import { FormTextarea } from '@/components/ui/FormTextarea';
+import DropdownSelect from '@/components/ui/DropdownSelect';
+import DatePicker from '@/components/ui/DatePicker';
+import SubmitButton from '@/components/ui/SubmitButton';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 const GENRE_OPTIONS = [
-    { value: 'major', label: 'Major' },
-    { value: 'growth', label: 'Growth' },
-    { value: 'minor', label: 'Minor' },
+    { value: 'major', label: 'Major (重大突破)' },
+    { value: 'minor', label: 'Minor (小成就)' },
+    { value: 'growth', label: 'Growth (個人成長)' },
 ];
 
-const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-export default function MilestonePage() {
+export default function MilestoneRecordPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
-    const [isGenreOpen, setIsGenreOpen] = useState(false);
-    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-
-    const genreRef = useRef(null);
-    const dateRef = useRef(null);
-
+    // 集中管理表單狀態
     const [formData, setFormData] = useState({
         title: '',
-        genre: 'growth',
-        place: '',
+        genre: 'major',
         date: new Date().toISOString().split('T')[0],
+        place: '',
         description: '',
     });
 
-    const [navDate, setNavDate] = useState(new Date());
-
-    const commonInputStyles =
-        'w-full bg-transparent text-lg font-bold text-[#3f4a4e] placeholder-[#3f4a4e]/20 outline-none pb-3 border-b-2 border-[#3f4a4e]/20 focus:border-[#3f4a4e] transition-all duration-300 rounded-none';
-
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (genreRef.current && !genreRef.current.contains(event.target)) setIsGenreOpen(false);
-            if (dateRef.current && !dateRef.current.contains(event.target)) setIsCalendarOpen(false);
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
+    // 處理標準 Input / Textarea 的變更
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleGenreSelect = (value) => {
-        setFormData((prev) => ({ ...prev, genre: value }));
-        setIsGenreOpen(false);
-    };
-
-    const handleDateSelect = (day) => {
-        const monthStr = (navDate.getMonth() + 1).toString().padStart(2, '0');
-        const dayStr = day.toString().padStart(2, '0');
-        setFormData((prev) => ({ ...prev, date: `${navDate.getFullYear()}-${monthStr}-${dayStr}` }));
-        setIsCalendarOpen(false);
-    };
-
-    const changeMonth = (offset) => {
-        setNavDate((prev) => {
-            const newDate = new Date(prev);
-            newDate.setMonth(newDate.getMonth() + offset);
-            return newDate;
-        });
-    };
-
-    const getDaysInMonth = (date) => {
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        return {
-            daysInMonth: new Date(year, month + 1, 0).getDate(),
-            firstDayOfMonth: new Date(year, month, 1).getDay(),
-            year,
-            month,
-        };
-    };
-
-    const { daysInMonth, firstDayOfMonth, year, month } = getDaysInMonth(navDate);
-
-    const isSelectedDate = (d) => {
-        const target = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
-        return formData.date === target;
-    };
-
+    // 處理資料庫提交
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+
         try {
-            if (!formData.title) throw new Error('標題是必填的！');
-            const { error } = await supabase
-                .from('Milestone')
-                .insert([{ ...formData, description: formData.description || null }]);
+            // 組合最終 Payload，確保資料型態轉換正確 (ParseInt) 以符合 DB 欄位要求
+            const payload = {
+                title: formData.title,
+                genre: formData.genre,
+                date: formData.date,
+                place: formData.place,
+                description: formData.description,
+            };
+
+            const { error } = await supabase.from('Milestone').insert([payload]);
+
             if (error) throw error;
-            toast.success('已記錄');
-            setFormData((prev) => ({ ...prev, title: '', description: '', place: '' }));
+
+            toast.success('里程碑紀錄已儲存！');
+            setTimeout(() => router.push('/'), 1500);
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : '發生錯誤');
+            console.error('Insert error:', error);
+            toast.error('儲存失敗，請檢查資料庫設定或稍後再試。');
         } finally {
             setLoading(false);
         }
     };
 
-    const currentGenre = GENRE_OPTIONS.find((g) => g.value === formData.genre) || GENRE_OPTIONS[0];
-
-    const Label = ({ children }) => (
-        <label className="block text-xs font-extrabold uppercase tracking-[0.15em] text-[#3f4a4e]/50 mb-2 pl-1">{children}</label>
-    );
-
     return (
-        <div
-            className="min-h-dvh w-full flex flex-col items-center justify-center p-6 sm:p-8 transition-colors duration-500 overflow-y-auto"
-            style={{ backgroundColor: '#E5E0DC' }}
-        >
-            <Toaster position="top-center" />
+        <RecordPageLayout title="Milestone">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-8 grow">
+                {/* 使用抽離的元件，傳遞 state 與 setter */}
+                <FormInput
+                    label="Title"
+                    name="title"
+                    placeholder="里程碑名稱 (如: 第一次跑完半馬)"
+                    value={formData.title}
+                    onChange={handleChange}
+                    required
+                />
 
-            <form onSubmit={handleSubmit} className="w-full max-w-md flex flex-col gap-8 my-10">
-                <div className="group">
-                    <Label>Title</Label>
-                    <input
-                        type="text"
-                        name="title"
-                        value={formData.title}
-                        onChange={handleChange}
-                        className={commonInputStyles}
-                        autoFocus
-                    />
-                </div>
+                <DropdownSelect
+                    label="Genre"
+                    options={GENRE_OPTIONS}
+                    value={formData.genre}
+                    // 自定義元件直接回傳 value，不需要 e.target
+                    onChange={(val) => setFormData((prev) => ({ ...prev, genre: val }))}
+                />
 
-                <div className="grid grid-cols-2 gap-8">
-                    <div className="group relative" ref={dateRef}>
-                        <Label>Date</Label>
-                        <button
-                            type="button"
-                            onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-                            className={`text-left font-mono tracking-tight ${commonInputStyles}`}
-                        >
-                            {formData.date.replace(/-/g, '.')}
-                        </button>
+                <DatePicker
+                    label="Date"
+                    value={formData.date}
+                    // DatePicker 會回傳格式化後的字串 (YYYY-MM-DD)
+                    onChange={(val) => setFormData((prev) => ({ ...prev, date: val }))}
+                />
 
-                        {isCalendarOpen && (
-                            <div className="absolute top-full left-0 mt-2 p-4 bg-[#FAF8F5] rounded-xl shadow-xl shadow-[#3f4a4e]/10 border border-[#3f4a4e]/5 z-50 animate-in fade-in slide-in-from-top-2 w-[280px]">
-                                <div className="flex items-center justify-between mb-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => changeMonth(-1)}
-                                        className="p-1 hover:bg-[#3f4a4e]/10 rounded-full text-[#3f4a4e] transition-colors"
-                                    >
-                                        <ChevronLeft size={18} />
-                                    </button>
-                                    <span className="font-bold text-[#3f4a4e]">
-                                        {year}.{(month + 1).toString().padStart(2, '0')}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => changeMonth(1)}
-                                        className="p-1 hover:bg-[#3f4a4e]/10 rounded-full text-[#3f4a4e] transition-colors"
-                                    >
-                                        <ChevronRight size={18} />
-                                    </button>
-                                </div>
-                                <div className="grid grid-cols-7 mb-2">
-                                    {WEEKDAYS.map((day) => (
-                                        <div
-                                            key={day}
-                                            className="text-center text-[10px] font-extrabold text-[#3f4a4e]/40 uppercase"
-                                        >
-                                            {day}
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="grid grid-cols-7 gap-1">
-                                    {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                                        <div key={`empty-${i}`} />
-                                    ))}
-                                    {Array.from({ length: daysInMonth }).map((_, i) => {
-                                        const day = i + 1;
-                                        const selected = isSelectedDate(day);
-                                        return (
-                                            <button
-                                                key={day}
-                                                type="button"
-                                                onClick={() => handleDateSelect(day)}
-                                                className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                                                    selected
-                                                        ? 'bg-[#3f4a4e] text-[#E5E0DC] shadow-md shadow-[#3f4a4e]/20'
-                                                        : 'text-[#3f4a4e] hover:bg-[#3f4a4e]/10'
-                                                }`}
-                                            >
-                                                {day}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                <FormInput
+                    label="Place"
+                    name="place"
+                    placeholder="發生地點 (如: 台北市)"
+                    value={formData.place}
+                    onChange={handleChange}
+                />
 
-                    <div className="group relative" ref={genreRef}>
-                        <Label>Genre</Label>
-                        <button
-                            type="button"
-                            onClick={() => setIsGenreOpen(!isGenreOpen)}
-                            className={`flex items-center justify-between ${commonInputStyles}`}
-                        >
-                            <span>{currentGenre.label}</span>
-                            <ChevronDown
-                                size={18}
-                                className={`text-[#3f4a4e]/40 transition-transform duration-300 ${
-                                    isGenreOpen ? 'rotate-180' : ''
-                                }`}
-                            />
-                        </button>
+                <FormTextarea
+                    label="Description"
+                    name="description"
+                    placeholder="寫下這個里程碑的心得或細節..."
+                    value={formData.description}
+                    onChange={handleChange}
+                    rows={3}
+                />
 
-                        {isGenreOpen && (
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-[#FAF8F5] rounded-xl shadow-xl shadow-[#3f4a4e]/10 border border-[#3f4a4e]/5 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
-                                {GENRE_OPTIONS.map((opt) => (
-                                    <button
-                                        key={opt.value}
-                                        type="button"
-                                        onClick={() => handleGenreSelect(opt.value)}
-                                        className="w-full px-5 py-3 flex items-center justify-between hover:bg-[#E5E0DC]/50 transition-colors group/item"
-                                    >
-                                        <div className="flex flex-col items-start gap-0.5">
-                                            <span className="text-base font-bold text-[#3f4a4e]">{opt.label}</span>
-                                        </div>
-                                        {formData.genre === opt.value && (
-                                            <Check size={16} className="text-[#3f4a4e]" strokeWidth={3} />
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                {/* 佔位符，將按鈕推至底部 */}
+                <div className="grow" />
 
-                <div className="group">
-                    <Label>Place</Label>
-                    <input
-                        type="text"
-                        name="place"
-                        value={formData.place}
-                        onChange={handleChange}
-                        className={commonInputStyles}
-                    />
-                </div>
-
-                <div className="group grow">
-                    <Label>Description</Label>
-                    <textarea
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        rows={5}
-                        className={`${commonInputStyles} resize-none leading-relaxed`}
-                    />
-                </div>
-
-                <div className="pt-4 pb-8">
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-[#3f4a4e] text-[#E5E0DC] rounded-2xl py-5 font-bold text-xl shadow-xl shadow-[#3f4a4e]/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed hover:bg-[#2d3538]"
-                    >
-                        {loading ? (
-                            <Loader2 className="animate-spin" size={24} />
-                        ) : (
-                            <>
-                                <Save size={22} strokeWidth={2.5} />
-                                <span className="tracking-wide">SAVE RECORD</span>
-                            </>
-                        )}
-                    </button>
-                </div>
+                <SubmitButton loading={loading} text="SAVE MILESTONE" />
             </form>
-        </div>
+        </RecordPageLayout>
     );
 }
