@@ -49,7 +49,7 @@ export default function AnimeRecordPage() {
                 // 準備要傳給 API 的 FormData
                 const apiData = new FormData();
                 apiData.append('file', formData.imageFile);
-                apiData.append('folder', 'anime'); // 告訴 API 放進 milestone 資料夾
+                apiData.append('folder', 'anime'); // 告訴 API 放進 anime 資料夾
 
                 const uploadRes = await fetch('/api/upload', {
                     method: 'POST',
@@ -97,7 +97,7 @@ export default function AnimeRecordPage() {
     return (
         <RecordPageLayout title="Anime Record">
             <form onSubmit={handleSubmit} className="flex flex-col gap-8 grow">
-                <ImageUpload label="Milestone Photo" onChange={(file) => setFormData((prev) => ({ ...prev, imageFile: file }))} />
+                <ImageUpload label="Anime Photo" onChange={(file) => setFormData((prev) => ({ ...prev, imageFile: file }))} />
 
                 <FormInput
                     label="Title"

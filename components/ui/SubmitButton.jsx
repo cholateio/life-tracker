@@ -5,7 +5,7 @@ import { Loader2, Save } from 'lucide-react';
 
 export default function SubmitButton({ loading, text = 'SAVE RECORD' }) {
     return (
-        <div className="pb-8 mt-4">
+        <div className="pb-8 mt-2">
             <button
                 type="submit"
                 disabled={loading}

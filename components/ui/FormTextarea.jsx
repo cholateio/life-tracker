@@ -14,7 +14,7 @@ export function FormTextarea({ label, name, value, onChange, placeholder, rows =
                 placeholder={placeholder}
                 required={required}
                 rows={rows}
-                className={`${commonInputStyles} resize-none`}
+                className={`${commonInputStyles} resize-none text-sm`}
             />
         </div>
     );
