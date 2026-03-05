@@ -49,7 +49,7 @@ export default function GameRecordPage() {
             try {
                 // 抓取 Game table 最新 3 筆資料 (依建立時間或更新時間排序)
                 const { data, error } = await supabase
-                    .from('Game')
+                    .from('Games')
                     .select('*')
                     .order('created_at', { ascending: false })
                     .limit(3);
@@ -114,7 +114,7 @@ export default function GameRecordPage() {
 
                 const apiData = new FormData();
                 apiData.append('file', formData.imageFile);
-                apiData.append('folder', 'game');
+                apiData.append('folder', 'games');
 
                 const uploadRes = await fetch('/api/upload', {
                     method: 'POST',
@@ -145,10 +145,10 @@ export default function GameRecordPage() {
             // 根據 editingId 決定是更新還是新增
             let dbError;
             if (editingId) {
-                const { error } = await supabase.from('Game').update(payload).eq('id', editingId);
+                const { error } = await supabase.from('Games').update(payload).eq('id', editingId);
                 dbError = error;
             } else {
-                const { error } = await supabase.from('Game').insert([payload]);
+                const { error } = await supabase.from('Games').insert([payload]);
                 dbError = error;
             }
 
