@@ -11,8 +11,11 @@ import RecordPageLayout from '@/components/layout/RecordPageLayout';
 import { FormInput } from '@/components/ui/FormInput';
 import SubmitButton from '@/components/ui/SubmitButton';
 import ImageUploadGallery from '@/components/ui/ImageUploadGallery';
+import { useAuth } from '@/hooks/useAuth';
+import { Lock } from 'lucide-react';
 
 export default function GalleryUploadPage() {
+    const { isAuthenticated, isChecking } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
@@ -116,7 +119,6 @@ export default function GalleryUploadPage() {
             >
                 {/* 接收 ImageUploadGallery 回傳的物件 */}
                 <ImageUploadGallery label="Select Artwork" onChange={(meta) => setImageMeta(meta)} />
-
                 <FormInput
                     label="Tags (標籤)"
                     name="tags"
@@ -125,7 +127,6 @@ export default function GalleryUploadPage() {
                     onChange={handleChange}
                     required
                 />
-
                 <FormInput
                     label="Source (來源)"
                     name="source"
@@ -133,7 +134,6 @@ export default function GalleryUploadPage() {
                     value={formData.source}
                     onChange={handleChange}
                 />
-
                 {/* 自動擷取的 Metadata 資訊展示 (讓使用者確認解析度與大小) */}
                 {imageMeta && (
                     <div className="bg-[#3f4a4e]/5 p-4 rounded-xl flex flex-col gap-1.5 border border-[#3f4a4e]/10">
@@ -152,10 +152,17 @@ export default function GalleryUploadPage() {
                         </div>
                     </div>
                 )}
-
                 <div className="grow" />
-
-                <SubmitButton loading={loading} text="UPLOAD TO GALLERY" />
+                {/* 🌟 權限控制區塊 */}
+                {isChecking ? (
+                    <div className="h-15 flex items-center justify-center opacity-50">檢查權限中...</div>
+                ) : isAuthenticated ? (
+                    <SubmitButton loading={loading} text="UPLOAD" />
+                ) : (
+                    <div className="flex items-center justify-center bg-[#3f4a4e]/5 text-[#3f4a4e]/50 border-2 border-dashed border-[#3f4a4e]/20 p-4 rounded-2xl font-bold tracking-widest text-sm uppercase">
+                        <span>Admin Login Required</span>
+                    </div>
+                )}{' '}
             </form>
         </RecordPageLayout>
     );

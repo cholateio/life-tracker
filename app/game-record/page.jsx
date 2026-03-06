@@ -15,6 +15,8 @@ import DatePicker from '@/components/ui/DatePicker';
 import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import SubmitButton from '@/components/ui/SubmitButton';
 import ImageUpload from '@/components/ui/ImageUpload';
+import { useAuth } from '@/hooks/useAuth';
+import { Lock } from 'lucide-react';
 
 // 定義表單的預設空狀態，方便在「新建紀錄」時重置
 const DEFAULT_FORM_DATA = {
@@ -32,6 +34,7 @@ const DEFAULT_FORM_DATA = {
 };
 
 export default function GameRecordPage() {
+    const { isAuthenticated, isChecking } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [initialFetching, setInitialFetching] = useState(true);
@@ -234,7 +237,6 @@ export default function GameRecordPage() {
                             </div>
                         </>
                     )}
-
                     {/* 👇 根據模式調整日期的排版 */}
                     {!editingId ? (
                         <div className="grid grid-cols-2 gap-6">
@@ -256,7 +258,6 @@ export default function GameRecordPage() {
                             onChange={(val) => setFormData((prev) => ({ ...prev, last_date: val }))}
                         />
                     )}
-
                     <div className="grid grid-cols-2 gap-6">
                         <FormInput
                             label="Rating (1-10)"
@@ -277,13 +278,11 @@ export default function GameRecordPage() {
                             required
                         />
                     </div>
-
                     <ToggleSwitch
                         label="Add to Favorites"
                         checked={formData.favorite}
                         onChange={(val) => setFormData((prev) => ({ ...prev, favorite: val }))}
                     />
-
                     <FormTextarea
                         label="Journal"
                         name="journal"
@@ -292,10 +291,17 @@ export default function GameRecordPage() {
                         onChange={handleChange}
                         rows={editingId ? 14 : 3}
                     />
-
                     <div className="grow" />
-
-                    <SubmitButton loading={loading} text={editingId ? 'UPDATE RECORD' : 'SAVE RECORD'} />
+                    {/* 🌟 權限控制區塊 */}
+                    {isChecking ? (
+                        <div className="h-15 flex items-center justify-center opacity-50">檢查權限中...</div>
+                    ) : isAuthenticated ? (
+                        <SubmitButton loading={loading} text="UPLOAD" />
+                    ) : (
+                        <div className="flex items-center justify-center bg-[#3f4a4e]/5 text-[#3f4a4e]/50 border-2 border-dashed border-[#3f4a4e]/20 p-4 rounded-2xl font-bold tracking-widest text-sm uppercase">
+                            <span>Admin Login Required</span>
+                        </div>
+                    )}{' '}
                 </form>
             )}
         </RecordPageLayout>

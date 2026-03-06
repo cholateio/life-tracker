@@ -12,7 +12,8 @@ import { FormTextarea } from '@/components/ui/FormTextarea';
 import DropdownSelect from '@/components/ui/DropdownSelect';
 import DatePicker from '@/components/ui/DatePicker';
 import SubmitButton from '@/components/ui/SubmitButton';
-import ImageUpload from '@/components/ui/ImageUpload';
+import { useAuth } from '@/hooks/useAuth';
+import { Lock } from 'lucide-react';
 
 const GENRE_OPTIONS = [
     { value: 'major', label: 'Major (重大突破)' },
@@ -21,6 +22,7 @@ const GENRE_OPTIONS = [
 ];
 
 export default function MilestoneRecordPage() {
+    const { isAuthenticated, isChecking } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
@@ -80,7 +82,6 @@ export default function MilestoneRecordPage() {
                     onChange={handleChange}
                     required
                 />
-
                 <DropdownSelect
                     label="Genre"
                     options={GENRE_OPTIONS}
@@ -88,14 +89,12 @@ export default function MilestoneRecordPage() {
                     // 自定義元件直接回傳 value，不需要 e.target
                     onChange={(val) => setFormData((prev) => ({ ...prev, genre: val }))}
                 />
-
                 <DatePicker
                     label="Date"
                     value={formData.date}
                     // DatePicker 會回傳格式化後的字串 (YYYY-MM-DD)
                     onChange={(val) => setFormData((prev) => ({ ...prev, date: val }))}
                 />
-
                 <FormInput
                     label="Place"
                     name="place"
@@ -103,7 +102,6 @@ export default function MilestoneRecordPage() {
                     value={formData.place}
                     onChange={handleChange}
                 />
-
                 <FormTextarea
                     label="Description"
                     name="description"
@@ -112,11 +110,18 @@ export default function MilestoneRecordPage() {
                     onChange={handleChange}
                     rows={3}
                 />
-
                 {/* 佔位符，將按鈕推至底部 */}
                 <div className="grow" />
-
-                <SubmitButton loading={loading} text="SAVE MILESTONE" />
+                {/* 🌟 權限控制區塊 */}
+                {isChecking ? (
+                    <div className="h-15 flex items-center justify-center opacity-50">檢查權限中...</div>
+                ) : isAuthenticated ? (
+                    <SubmitButton loading={loading} text="UPLOAD" />
+                ) : (
+                    <div className="flex items-center justify-center bg-[#3f4a4e]/5 text-[#3f4a4e]/50 border-2 border-dashed border-[#3f4a4e]/20 p-4 rounded-2xl font-bold tracking-widest text-sm uppercase">
+                        <span>Admin Login Required</span>
+                    </div>
+                )}{' '}
             </form>
         </RecordPageLayout>
     );

@@ -12,8 +12,11 @@ import DatePicker from '@/components/ui/DatePicker';
 import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import SubmitButton from '@/components/ui/SubmitButton';
 import ImageUpload from '@/components/ui/ImageUpload';
+import { useAuth } from '@/hooks/useAuth';
+import { Lock } from 'lucide-react';
 
 export default function AnimeRecordPage() {
+    const { isAuthenticated, isChecking } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
@@ -98,7 +101,6 @@ export default function AnimeRecordPage() {
         <RecordPageLayout title="Anime Record">
             <form onSubmit={handleSubmit} className="flex flex-col gap-8 grow">
                 <ImageUpload label="Anime Photo" onChange={(file) => setFormData((prev) => ({ ...prev, imageFile: file }))} />
-
                 <FormInput
                     label="Title"
                     name="title"
@@ -107,7 +109,6 @@ export default function AnimeRecordPage() {
                     onChange={handleChange}
                     required
                 />
-
                 <FormInput
                     label="Studio"
                     name="studio"
@@ -115,13 +116,11 @@ export default function AnimeRecordPage() {
                     value={formData.studio}
                     onChange={handleChange}
                 />
-
                 <DatePicker
                     label="Watch Date"
                     value={formData.date}
                     onChange={(val) => setFormData((prev) => ({ ...prev, date: val }))}
                 />
-
                 {/* 排版：將評分與集數放在同一列 */}
                 <div className="grid grid-cols-2 gap-6">
                     <FormInput
@@ -144,17 +143,23 @@ export default function AnimeRecordPage() {
                         required
                     />
                 </div>
-
                 <ToggleSwitch
                     label="Add to Favorites"
                     checked={formData.favorite}
                     // ToggleSwitch 回傳 boolean
                     onChange={(val) => setFormData((prev) => ({ ...prev, favorite: val }))}
                 />
-
                 <div className="grow" />
-
-                <SubmitButton loading={loading} text="SAVE RECORD" />
+                {/* 🌟 權限控制區塊 */}
+                {isChecking ? (
+                    <div className="h-15 flex items-center justify-center opacity-50">檢查權限中...</div>
+                ) : isAuthenticated ? (
+                    <SubmitButton loading={loading} text="UPLOAD" />
+                ) : (
+                    <div className="flex items-center justify-center bg-[#3f4a4e]/5 text-[#3f4a4e]/50 border-2 border-dashed border-[#3f4a4e]/20 p-4 rounded-2xl font-bold tracking-widest text-sm uppercase">
+                        <span>Admin Login Required</span>
+                    </div>
+                )}{' '}
             </form>
         </RecordPageLayout>
     );
