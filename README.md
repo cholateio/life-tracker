@@ -1,4 +1,4 @@
-## Record Tracker
+## Life Tracker
 
 A full-stack, mobile-first personal tracking system built with Next.js (App Router), Supabase (PostgreSQL), and Google Cloud Storage (GCP).
 
