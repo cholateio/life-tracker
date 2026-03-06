@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Record Tracker
 
-## Getting Started
+A full-stack, mobile-first personal tracking system built with Next.js (App Router), Supabase (PostgreSQL), and Google Cloud Storage (GCP).
 
-First, run the development server:
+## Preview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+![Functions Home Page](./public/intro1.jpg)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Why I Made This
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+I built this project to create a simple way (mobile) to upload my favorite images, life track and much more.
+It provides a seamless data entry experience for managing various personal records (Games, Anime, Milestones, and Artworks) through a highly modular architecture.
+Of course, with AI (Gemini), but I am for sure I understand every code inside the project due to my web dev experience before.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Features
 
-## Learn More
+- Client-Side Image Processing: Utilizes the HTML5 Canvas API to perform edge-level image resizing, smart rotation (auto-portrait for galleries), and metadata extraction (dimensions, file size) before uploading, drastically reducing server compute and bandwidth.
 
-To learn more about Next.js, take a look at the following resources:
+- Dynamic Serverless Storage: A flexible API route that dynamically distributes files to specific flat-structured GCP Buckets based on payload types. Implements SHA-256 hashing on file buffers to generate unique filenames, ensuring flawless deduplication and cache management.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Robust Data Architecture: Deep integration with Supabase featuring Row Level Security (RLS) for data protection, automated payload sanitization (e.g., parsing comma-separated strings into PostgreSQL text[] arrays), and a DRY-focused UI component library.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+![Anime Record Page](./public/intro2.jpg)
 
-## Deploy on Vercel
+## Tech Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Framework: Next.js (App Router)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Database & Auth: Supabase (PostgreSQL)
+
+- Cloud Storage: Google Cloud Storage (GCP)
+
+- Styling & UI: Tailwind CSS, Lucide React, Sonner
+
+- Deployment: Vercel
+
+## Record Display (on other website)
+
+![Record Display Page (on other web)](./public/intro3.jpg)

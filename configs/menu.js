@@ -1,4 +1,4 @@
-import { Moon, Dumbbell, Flag, Bot, Gamepad2, Tv } from 'lucide-react';
+import { Moon, Landmark, Flag, Bot, Gamepad2, Tv } from 'lucide-react';
 
 export const MENU_CONFIG = [
     {
@@ -35,5 +35,12 @@ export const MENU_CONFIG = [
         href: '/game-record',
         icon: Gamepad2,
         color: '#1caad9',
+    },
+    {
+        name: '我的圖庫',
+        desc: 'Gallery',
+        href: '/gallery',
+        icon: Landmark,
+        color: '#8c6b5d',
     },
 ];

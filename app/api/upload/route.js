@@ -3,8 +3,7 @@ import { NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
 import crypto from 'crypto';
 
-// 初始化 GCP Storage 客戶端
-// 使用環境變數帶入憑證，並處理 Private Key 中常見的換行字元跳脫問題
+// 初始化 GCP Storage 客戶端 (維持在全域即可，因為憑證共用)
 const storage = new Storage({
     projectId: process.env.GCP_PROJECT_ID,
     credentials: {
@@ -13,35 +12,42 @@ const storage = new Storage({
     },
 });
 
-const bucketName = process.env.GCP_BUCKET_NAME || 'cholate-thumbnail';
-const bucket = storage.bucket(bucketName);
-
 export async function POST(req) {
     try {
-        // 1. 解析前端傳來的 FormData
         const formData = await req.formData();
         const file = formData.get('file');
-        const folder = formData.get('folder') || 'general'; // 可傳入 'anime' 或 'milestone' 來分類資料夾
+        const folder = formData.get('folder');
+
+        // 🌟 新增：取得前端指定的 bucket 類型，預設為 thumbnail
+        const bucketType = formData.get('bucketType') || 'thumbnail';
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
 
-        // 2. 將 File 物件轉為 Buffer，以便在記憶體中處理
+        // 🌟 新增：動態決定 Bucket 名稱
+        let actualBucketName;
+        if (bucketType === 'gallery') {
+            actualBucketName = process.env.GCP_GALLERY_BUCKET_NAME || 'cholate-gallery';
+        } else {
+            actualBucketName = process.env.GCP_BUCKET_NAME || 'cholate-thumbnail';
+        }
+
+        // 在請求內部動態實例化 bucket
+        const bucket = storage.bucket(actualBucketName);
+
+        // ... (中間的 Buffer 與 Hash 轉換邏輯完全相同) ...
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // 3. 計算 SHA-256 雜湊值作為唯一檔名
         const hashSum = crypto.createHash('sha256');
         hashSum.update(buffer);
         const fileHash = hashSum.digest('hex');
 
-        // 取得副檔名 (前端將強制轉為 .jpg，這邊動態抓取以防萬一)
         const originalName = file.name;
         const extension = originalName.substring(originalName.lastIndexOf('.')) || '.jpg';
-        const destinationPath = `${folder}/${fileHash}${extension}`;
+        const destinationPath = folder ? `${folder}/${fileHash}${extension}` : `${fileHash}${extension}`;
 
-        // 4. 將 Buffer 直接上傳至 GCP (Serverless 最佳實踐)
         const gcsFile = bucket.file(destinationPath);
         await gcsFile.save(buffer, {
             metadata: {
@@ -50,8 +56,8 @@ export async function POST(req) {
             },
         });
 
-        // 5. 組合並回傳公開的 URL
-        const gcsUrl = `https://storage.googleapis.com/${bucketName}/${destinationPath}`;
+        // 🌟 新增：回傳的 URL 也要使用動態的 actualBucketName
+        const gcsUrl = `https://storage.googleapis.com/${actualBucketName}/${destinationPath}`;
 
         return NextResponse.json({ url: gcsUrl }, { status: 200 });
     } catch (error) {
