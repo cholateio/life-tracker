@@ -84,7 +84,7 @@ export default function ImageUpload({ label = 'Photo Record', onChange }) {
             {/* 上傳與預覽區塊 - 針對手機版設計的大觸控目標 */}
             <div
                 onClick={!isProcessing ? triggerFileSelect : undefined}
-                className={`relative w-48 aspect-[9/16] rounded-2xl overflow-hidden border-2 border-dashed transition-all flex items-center justify-center cursor-pointer ${
+                className={`relative w-48 aspect-9/16 rounded-2xl overflow-hidden border-2 border-dashed transition-all flex items-center justify-center cursor-pointer ${
                     previewUrl
                         ? 'border-[#3f4a4e]/20 shadow-xl shadow-[#3f4a4e]/10'
                         : 'border-[#3f4a4e]/40 hover:bg-[#3f4a4e]/5 active:scale-95'

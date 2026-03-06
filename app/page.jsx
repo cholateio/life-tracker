@@ -1,11 +1,37 @@
+'use client';
 import Link from 'next/link';
 import { MENU_CONFIG } from '@/configs/menu';
 
+import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+
 export default function Home() {
+    const router = useRouter();
+    const [clickCount, setClickCount] = useState(0);
+    const timeoutRef = useRef(null);
+
+    const handleSecretTap = () => {
+        const newCount = clickCount + 1;
+        setClickCount(newCount);
+
+        if (newCount >= 5) {
+            router.push('/login');
+            setClickCount(0);
+            return;
+        }
+
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+            setClickCount(0);
+        }, 2000);
+    };
+
     return (
         <main className="min-h-screen p-6 transition-colors duration-500 flex flex-col" style={{ backgroundColor: '#ede6e1' }}>
             <div className="mb-6 mt-2 ml-1">
-                <h1 className="text-2xl font-extrabold tracking-wide text-[#3f4a4e]">My Apps</h1>
+                <h1 onClick={handleSecretTap} className="text-2xl font-extrabold tracking-wide text-[#3f4a4e]">
+                    My Apps
+                </h1>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
