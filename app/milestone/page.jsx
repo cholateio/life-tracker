@@ -13,7 +13,6 @@ import DropdownSelect from '@/components/ui/DropdownSelect';
 import DatePicker from '@/components/ui/DatePicker';
 import SubmitButton from '@/components/ui/SubmitButton';
 import { useAuth } from '@/hooks/useAuth';
-import { Lock } from 'lucide-react';
 
 const GENRE_OPTIONS = [
     { value: 'major', label: 'Major (重大突破)' },

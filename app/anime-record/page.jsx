@@ -13,7 +13,6 @@ import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import SubmitButton from '@/components/ui/SubmitButton';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { useAuth } from '@/hooks/useAuth';
-import { Lock } from 'lucide-react';
 
 export default function AnimeRecordPage() {
     const { isAuthenticated, isChecking } = useAuth();
