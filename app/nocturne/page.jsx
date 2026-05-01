@@ -202,7 +202,7 @@ export default function NocturnePage() {
     let mainArea;
     if (tonightTheme) {
         mainArea = tonightTheme.id === 'free' ? <FreeNightPoster theme={tonightTheme} /> : <ThemeCard theme={tonightTheme} />;
-    } else if (now.getHours() >= 0) {
+    } else if (now.getHours() >= 19) {
         mainArea = <DrawButton onDraw={handleDraw} />;
     } else {
         mainArea = <PreNightPlaceholder now={now} />;
