@@ -1,4 +1,4 @@
-import { Moon, Landmark, Flag, Bot, Gamepad2, Tv, ListTodo } from 'lucide-react';
+import { Moon, Landmark, Flag, Bot, Gamepad2, Tv, ListTodo, Dices } from 'lucide-react';
 
 export const MENU_CONFIG = [
     {
@@ -49,5 +49,12 @@ export const MENU_CONFIG = [
         href: '/todo',
         icon: ListTodo,
         color: '#FF4D4D',
+    },
+    {
+        name: '夜籤',
+        desc: 'Nocturne',
+        href: '/nocturne',
+        icon: Dices,
+        color: '#4a3f6b',
     },
 ];

@@ -103,6 +103,28 @@ life-tracker/
 - Phase 動到列表內項目 → MUST run `/codex:review`
 - 即將動到列表內項目 → STOP 問使用者再繼續
 
+## Communication language
+
+實做後用**繁體中文**解釋修改、操作和驗證結果。
+
+- **一律繁體中文**：說明性文字、總結、tradeoff 分析、「我做了什麼」報告、給使用者的操作步驟、驗證結果、phase 完成回報。
+- **保持英文（不翻譯）**：code、file paths、function/variable names、npm/git/CLI 指令、error messages、技術 identifier（例如 `useEffect`、`lib/nocturne.js`、`npm run lint`）。
+- **表格欄位**標題用繁體中文（狀態 / 結果 / 動作）、值維持原文（file paths、status codes 等）。
+- 中英混用是合理的，不要硬翻 `localStorage` 之類的技術詞。
+
+## Tiny config tweaks — recipe, not intervention
+
+當需要的改動是「≤ 2 行的設定 / 閾值 / 開關 / debug toggle」：
+
+- **做這個**：直接給 recipe — 檔案路徑 + 行號 + 現值 → 建議值（如果有幾個合理選項可以一起列）。
+- **不要做**：詢問「要我幫你改嗎？」、主動 Edit/Write、起 dev server 走操作步驟。
+
+例外：使用者明確說「幫我改」/「直接動手」→ 才執行。
+
+理由：使用者偏好自己掌控小改動，「要不要我幫你改」的來回是多餘 friction。
+
+不適用：≥ 3 行 / 跨檔案 / 涉及邏輯改動 → 走正常實作流程（brainstorming → plan → execute）。
+
 ---
 
 # Multi-Agent Workflow Rules
