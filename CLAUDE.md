@@ -29,13 +29,11 @@ Google Cloud Storage（圖片 thumbnail / gallery 雙 bucket），部署在 Verc
 life-tracker/
 ├── CLAUDE.md
 ├── README.md
-├── USAGE.md                      ← 使用者操作手冊（multi-agent kit 配套）
 ├── package.json
 ├── jsconfig.json                 ← `@/*` → 專案根目錄 alias
 ├── next.config.mjs               ← 透過 Serwist 包裝 Next config
 ├── eslint.config.mjs
 ├── postcss.config.mjs
-├── setup.sh                      ← multi-agent kit 環境檢查
 ├── .env.local                    ← Supabase / GCP 環境變數（gitignored）
 ├── gcp-keys.json                 ← GCP service account（gitignored）
 │
@@ -99,9 +97,9 @@ life-tracker/
 
 目前無強制 constraints。實際踩到地雷後再累積（格式：「不要動 X，因為會壞 Y」）。
 
-未來如果有條目進來，記得它會觸發 "Multi-Agent Workflow Rules" 裡的兩個自動規則：
-- Phase 動到列表內項目 → MUST run `/codex:review`
-- 即將動到列表內項目 → STOP 問使用者再繼續
+未來如果有條目進來，記得它會觸發 kit 規則（`.claude/rules/kit-workflow.md`）的
+兩個自動行為：Phase 動到列表內項目 → 必跑 phase-level review；即將動到列表內
+項目 → STOP 問使用者。路徑型禁區同步加進 `.claude/protected-paths`（hook 物理執法）。
 
 ## Communication language
 
@@ -127,182 +125,15 @@ life-tracker/
 
 ---
 
-# Multi-Agent Workflow Rules
+## Multi-agent kit
 
-> 以下為通用協作規則。除非專案有特殊需求，否則不需要編輯。
+workflow / 派工 / review / 判斷規則由 `.claude/rules/` 每 session 自動載入
+（kit-owned，由 kit repo 的 `init.sh --update` 維護，不要在本專案裡改）。
+情境對應的按需文件：
 
-## 三方協作概念
-
-This project orchestrates three external AI capabilities:
-
-- **Gemini CLI** (research scout): 蒐集網路資源、整合外部資訊。**只做研究，不寫 code、不 review**。
-- **Superpowers** (architect + worker): brainstorm、寫 plan、執行 plan。Claude 的主要規劃和實作流程。
-- **Codex Plugin** (reviewer): 跨模型 code review、adversarial challenge。**只做 review，不寫 code**。
-
-Main Claude orchestrates these three based on task type.
-
-## Task-size classification (重要)
-
-The task classifier hook (`.claude/hooks/classify-task.sh`) may inject a
-`TASK_CLASSIFICATION` hint into context. Honor it.
-
-If no hint is present, classify yourself using these rules:
-
-| Signal | Classification |
-|--------|---------------|
-| User said "just do it" / "quick" / "small" | `small_task` |
-| User said "full workflow" / "review the plan" | `explicit_full` |
-| Estimated change < 30 lines, single file, single concern | `small_task` |
-| UI tweak / CSS / copy edit / formatting | `small_task` |
-| Bug fix without business logic change | `small_task` |
-| New feature, single file, < 100 lines | `medium_task` |
-| New feature, multiple files OR new dependencies | `large_task` |
-| Refactor, schema migration, auth/payment changes | `large_task` |
-
-### What to run for each classification
-
-**small_task**: Just do it.
-- Skip research-before-planning, superpowers brainstorming, superpowers writing-plans
-- Make the change directly
-- After change: brief summary
-- NO automatic codex review (unless task touched business logic — see "Final review trigger" below)
-
-**medium_task**: Light workflow.
-- Skip research (unless task involves a new external API/library)
-- Use superpowers:writing-plans (skip brainstorming for clarity-low cases)
-- Run `/codex:review` on the plan
-- User approves
-- Implement
-- Final review per the rules below
-
-**large_task**: Full workflow.
-- Trigger `research-before-planning` skill if task involves: external libraries,
-  security, performance-critical paths, novel architecture
-- Use superpowers:brainstorming → writing-plans
-- Run `/codex:review` on the plan (and `/codex:adversarial-review` if high-stakes)
-- User approves
-- superpowers:executing-plans with phase-level review (see below)
-- Final review
-
-### Phase-level review during executing-plans
-
-When superpowers completes a phase, decide whether to run `/codex:review`:
-
-**MUST review** (no exceptions):
-- Phase touched: auth, authorization, session management
-- Phase touched: payment, billing, money calculations
-- Phase touched: data migration, schema changes
-- Phase modified anything in "Project-specific constraints"
-
-**Recommend review (default to yes, ask if unclear)**:
-- Phase touched: business logic that users will perceive
-- Phase touched: algorithms, state machines, concurrency
-- Phase touched: input validation, security boundaries
-- Phase ≥ 100 lines
-
-**Skip review**:
-- Phase only changed: UI / styling / docs
-- Phase only changed: simple glue code, CRUD, type definitions
-- Phase < 50 lines and no business logic
-
-### Final review trigger
-
-Before declaring the entire task complete, evaluate:
-
-```
-Did this session modify business-logic-bearing files (.py, .ts, .js, .go, .rs, etc.)
-that haven't been reviewed by /codex:review yet?
-```
-
-If YES → run `/codex:review` on the full change set before summarizing.
-
-The Stop hook (`.claude/hooks/verify-final-review.sh`) enforces this — if you
-forget, the hook will block your turn-end and remind you.
-
-## Cross-model isolation principle
-
-The PRIMARY question is "is the reviewer a different model than the writer?",
-not "which specialist fits this task?".
-
-- **Code written by main Claude → reviewed by Codex Plugin**: real isolation ✓
-- **Code written by codex (via /codex:rescue) → NOT reviewed by codex again**:
-  same model = no isolation. Defer to user judgment or accept the original.
-- **Plan written by main Claude/superpowers → reviewed by Codex Plugin**: ✓
-
-### Anti-pattern warning
-
-NEVER do "same model writes + same model reviews". This was a documented
-mistake from earlier kit versions. Codex writing code AND codex reviewing
-code provides almost no isolation value.
-
-## When to engage research-before-planning
-
-Trigger when ANY of these apply for a `large_task`:
-
-- Task involves a library/framework you've not seen used in this codebase
-- Task involves security-sensitive territory (auth, crypto, secrets)
-- Task involves performance-critical paths (you'd benefit from current benchmarks)
-- Task involves novel architecture (you'd benefit from seeing how others did it)
-
-DO NOT trigger for:
-- Tasks within established patterns of this codebase (existing project)
-- `small_task` or `medium_task` (overhead not justified)
-- Tasks where the user already provided clear technical direction
-
-## When to STOP and ask the user
-
-Stop and ask the user (do NOT auto-proceed) when:
-
-- Research-scout findings suggest a meaningfully better approach than the
-  current plan assumed → reconfirm direction
-- `/codex:review` flagged a `critical` or `high` issue you can't resolve
-  from your context
-- `/codex:adversarial-review` challenged a fundamental premise of the plan
-- Phase will modify > [PROJECT-SPECIFIC LINE THRESHOLD, default 100] lines
-- About to delete or rewrite > 30 existing lines
-- Touches anything in "Project-specific constraints"
-- Codex/Gemini are unavailable (quota/auth) — ask whether to proceed without
-  cross-model review or wait
-
-## Service unavailability handling
-
-When a tool fails (codex quota exhausted, gemini API error, etc.):
-
-1. **Report clearly to the user** — never silently skip
-2. **Categorize the failure**:
-   - Quota exhausted → suggest waiting or skipping this review
-   - Auth issue → tell user to check `codex login` / `GEMINI_API_KEY`
-   - Network → suggest retry
-3. **Ask the user explicitly**:
-   - (a) Skip this review and proceed (less safe — explain implication)
-   - (b) Wait and retry in N minutes
-   - (c) For research scout failures only: proceed without research
-     (acceptable — research is nice-to-have, not gate)
-
-Critical: do NOT auto-fall-back from `/codex:review` to "Claude self-review"
-silently. That breaks the isolation guarantee. The user must explicitly accept
-this fallback.
-
-## Skills available
-
-- `research-before-planning` — pre-brainstorming research via gemini scout
-
-(Most workflow logic is in CLAUDE.md and hooks, not skills, in v3.)
-
-## Subagents available
-
-- `gemini-research-scout` — wraps gemini CLI for web research only
-
-## Hooks active (see `.claude/settings.json`)
-
-- `classify-task.sh` (UserPromptSubmit): auto-tags task size
-- `verify-final-review.sh` (Stop): blocks turn-end if business logic
-  unreviewed
-
-## What main Claude does NOT have available (intentionally)
-
-- `codex-coder` / `codex-reviewer` subagents — replaced by official
-  Codex Plugin (`/codex:review`, `/codex:rescue`, etc.)
-- Bash wrapper for codex — Codex Plugin handles delegation
-- A `plan-with-review` skill — superpowers' writing-plans replaces it,
-  combined with auto-trigger of `/codex:review` on the resulting plan
+| 情境 | 讀這裡 |
+|------|--------|
+| 卡關了 / 想宣告完成 / 猶豫要不要問 user | `.claude/docs/judgment-matrix.md` |
+| 要派工給 subagent | `/kit-dispatch` skill（五種模板） |
+| 要做 UI / 設計 schema / 同一 bug 連續卡 / 引入外部服務 / 定架構 | `.claude/docs/verification-signals.md`（命中哪節讀哪節） |
+| 要記教訓 / 查歷史教訓 / 想改 harness 檔案 | `docs/LESSONS.md`（append；動大手術前先掃一眼）/ kit-evolution 規則（自動已載入） |
