@@ -21,12 +21,12 @@ cancel = "刪除 GCS bucket + 撤銷 service account 金鑰(documents/setup_gcp.
 
 [[paid]]
 service = "Supabase"
-billing = "free-tier"      # 待確認：未見付費方案證據，但用量成長後可能需升級
-monthly_est = "?"
+billing = "free-tier"      # user 2026-07-11 確認未付費
+monthly_est = "$0"
 cancel = "Supabase dashboard 刪除專案；移除 .env.local 的 NEXT_PUBLIC_SUPABASE_* 變數"
 
 [[paid]]
 service = "Vercel"
-billing = "free-tier"      # 待確認：README/CLAUDE.md 提到部署在 Vercel，未見付費方案證據
-monthly_est = "?"
+billing = "free-tier"      # Hobby 方案，user 2026-07-11 確認；部署方式：Vercel Git 整合（repo 內無設定檔，push 自動部署）
+monthly_est = "$0"
 cancel = "Vercel dashboard 刪除專案或移除 GitHub 整合"
