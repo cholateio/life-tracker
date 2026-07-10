@@ -1,0 +1,32 @@
+# PROJECT.toml — 專案 manifest(機器可讀,`proj` 指令據此做跨專案彙總)。
+# user-owned:kit 永不覆蓋。狀態/指令/付費服務改變時同步本檔,並更新 updated。
+
+name = "life-tracker"
+status = "active"          # active | mvp | done | paused | abandoned
+status_note = "8 個功能頁全部完成(含最新的夜籤 nocturne);目前無已知待辦，日常是功能微調 + 爬蟲每日自動跑"
+updated = 2026-07-11       # 最後一次人工確認本檔內容的日期
+
+[commands]                 # key = 用途短名;value = 可直接複製執行的指令
+dev = "pnpm dev"
+build = "pnpm build"
+start = "pnpm start"
+lint = "pnpm lint"
+crawl = "node scripts/crawl-to-file.mjs"
+
+[[paid]]
+service = "Google Cloud Storage"
+billing = "按用量"
+monthly_est = "?"          # 待確認：兩個 bucket(thumbnail/gallery)流量與儲存量未知
+cancel = "刪除 GCS bucket + 撤銷 service account 金鑰(documents/setup_gcp.md 有建立步驟);移除 .env.local 的 GCP_* 變數"
+
+[[paid]]
+service = "Supabase"
+billing = "free-tier"      # 待確認：未見付費方案證據，但用量成長後可能需升級
+monthly_est = "?"
+cancel = "Supabase dashboard 刪除專案；移除 .env.local 的 NEXT_PUBLIC_SUPABASE_* 變數"
+
+[[paid]]
+service = "Vercel"
+billing = "free-tier"      # 待確認：README/CLAUDE.md 提到部署在 Vercel，未見付費方案證據
+monthly_est = "?"
+cancel = "Vercel dashboard 刪除專案或移除 GitHub 整合"
