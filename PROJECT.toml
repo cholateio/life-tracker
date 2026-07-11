@@ -6,12 +6,8 @@ status = "active"          # active | mvp | done | paused | abandoned
 status_note = "8 個功能頁全部完成(含最新的夜籤 nocturne);目前無已知待辦，日常是功能微調 + 爬蟲每日自動跑"
 updated = 2026-07-11       # 最後一次人工確認本檔內容的日期
 
-[commands]                 # key = 用途短名;value = 可直接複製執行的指令
-dev = "pnpm dev"
-build = "pnpm build"
-start = "pnpm start"
-lint = "pnpm lint"
-crawl = "node scripts/crawl-to-file.mjs"
+[commands]                 # 只收「用它」的指令;開發指令見 package.json
+crawl = "node scripts/crawl-to-file.mjs"   # 手動跑巴哈日報爬蟲(平時由 GitHub Actions 每日自動跑)
 
 [[paid]]
 service = "Google Cloud Storage"
