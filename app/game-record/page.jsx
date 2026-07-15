@@ -119,8 +119,10 @@ export default function GameRecordPage() {
                 apiData.append('file', formData.imageFile);
                 apiData.append('folder', 'games');
 
+                const { data: { session } } = await supabase.auth.getSession();
                 const uploadRes = await fetch('/api/upload', {
                     method: 'POST',
+                    headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
                     body: apiData,
                 });
 

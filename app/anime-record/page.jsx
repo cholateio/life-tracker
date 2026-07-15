@@ -53,8 +53,10 @@ export default function AnimeRecordPage() {
                 apiData.append('file', formData.imageFile);
                 apiData.append('folder', 'anime'); // 告訴 API 放進 anime 資料夾
 
+                const { data: { session } } = await supabase.auth.getSession();
                 const uploadRes = await fetch('/api/upload', {
                     method: 'POST',
+                    headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
                     body: apiData,
                 });
 

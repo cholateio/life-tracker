@@ -53,8 +53,10 @@ export default function GalleryUploadPage() {
             apiData.append('file', imageMeta.file);
             apiData.append('bucketType', 'gallery');
 
+            const { data: { session } } = await supabase.auth.getSession();
             const uploadRes = await fetch('/api/upload', {
                 method: 'POST',
+                headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
                 body: apiData,
             });
 

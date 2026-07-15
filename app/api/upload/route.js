@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
 import crypto from 'crypto';
+import { supabase } from '@/lib/supabase';
 
 // 初始化 GCP Storage 客戶端 (維持在全域即可，因為憑證共用)
 const storage = new Storage({
@@ -14,6 +15,19 @@ const storage = new Storage({
 
 export async function POST(req) {
     try {
+        // 認證關卡：此端點會寫入 GCS（計費 + 可 host 任意檔），必須先驗身分。
+        // session 存在 client localStorage 而非 cookie，故走 Bearer token；
+        // getUser(token) 把 token 當參數傳、不動 module-level client 的 session，server 端共用安全。
+        const authHeader = req.headers.get('authorization') || '';
+        const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        if (!token) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const formData = await req.formData();
         const file = formData.get('file');
         const folder = formData.get('folder');
