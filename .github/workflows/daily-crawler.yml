@@ -26,7 +26,9 @@ jobs:
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: '20'
+                  # pnpm@11.5.0 (packageManager) imports node:sqlite → 需 Node ≥22.13,
+                  # 釘 20 會炸 ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite
+                  node-version: '22'
                   cache: 'pnpm'
 
             - name: Install dependencies
