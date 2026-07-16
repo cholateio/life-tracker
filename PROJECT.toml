@@ -3,8 +3,8 @@
 
 name = "life-tracker"
 status = "active"          # active | mvp | done | paused | abandoned
-status_note = "8 個功能頁全部完成(含最新的夜籤 nocturne);目前無已知待辦，日常是功能微調 + 爬蟲每日自動跑"
-updated = 2026-07-11       # 最後一次人工確認本檔內容的日期
+status_note = "8 功能頁上線,已修上傳認證與爬蟲 CI;剩非阻塞 bug(夜籤時鐘/圖片記憶體)與重複碼待整理"
+updated = 2026-07-17       # 最後一次人工確認本檔內容的日期
 
 [commands]                 # 只收「用它」的指令;開發指令見 package.json
 crawl = "node scripts/crawl-to-file.mjs"   # 手動跑巴哈日報爬蟲(平時由 GitHub Actions 每日自動跑)
@@ -13,13 +13,13 @@ crawl = "node scripts/crawl-to-file.mjs"   # 手動跑巴哈日報爬蟲(平時�
 service = "Google Cloud Storage"
 billing = "按用量"
 monthly_est = "?"          # 待確認：兩個 bucket(thumbnail/gallery)流量與儲存量未知
-cancel = "刪除 GCS bucket + 撤銷 service account 金鑰(documents/setup_gcp.md 有建立步驟);移除 .env.local 的 GCP_* 變數"
+cancel = "刪除 GCS bucket + 撤銷 service account 金鑰(documents/setup_gcp.md 有建立步驟);移除 .env 的 GCP_* 變數"
 
 [[paid]]
 service = "Supabase"
 billing = "free-tier"      # user 2026-07-11 確認未付費
 monthly_est = "$0"
-cancel = "Supabase dashboard 刪除專案；移除 .env.local 的 NEXT_PUBLIC_SUPABASE_* 變數"
+cancel = "Supabase dashboard 刪除專案；移除 .env 的 NEXT_PUBLIC_SUPABASE_* 變數"
 
 [[paid]]
 service = "Vercel"

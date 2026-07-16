@@ -3,7 +3,7 @@
 ## Project goal
 
 個人化的 mobile-first life tracking 全端應用，讓使用者用手機快速登錄/查詢生活紀錄
-（睡眠、人生里程碑、動漫清單、電玩清單、待辦、圖庫），並透過自動化爬蟲每日聚合
+（睡眠、人生里程碑、動漫清單、電玩清單、待辦、圖庫、夜籤），並透過自動化爬蟲每日聚合
 巴哈姆特看板資訊。架構採 Next.js App Router + Supabase (PostgreSQL/Auth) +
 Google Cloud Storage（圖片 thumbnail / gallery 雙 bucket），部署在 Vercel。
 單一使用者導向（首頁有 5-tap 隱藏入口才到 /login），不對外公開索引（robots: noindex）。
@@ -13,7 +13,7 @@ Google Cloud Storage（圖片 thumbnail / gallery 雙 bucket），部署在 Verc
 - Language: JavaScript（ES6+, JSX；無 TypeScript，`jsconfig.json` 用 `@/*` path alias）
 - Framework: Next.js 16（App Router）+ React 19
 - Datastore: Supabase（PostgreSQL，README 提到使用 RLS）
-- Auth: Supabase Auth（client side session via `hooks/useAuth.js`）
+- Auth: Supabase Auth（client session via `hooks/useAuth.js`；`/api/upload` 以 `Authorization: Bearer <access_token>` + server 端 `supabase.auth.getUser` 驗證）
 - Object storage: Google Cloud Storage（`@google-cloud/storage`，bucket 動態選擇 `thumbnail` / `gallery`，SHA-256 hash 命名做 dedup）
 - Styling/UI: Tailwind CSS 4（`@tailwindcss/postcss`）+ Lucide React icons + Sonner toasts
 - PWA: Serwist（`@serwist/next`，`app/sw.js` 為 SW source；dev 模式關閉）
@@ -34,7 +34,8 @@ life-tracker/
 ├── next.config.mjs               ← 透過 Serwist 包裝 Next config
 ├── eslint.config.mjs
 ├── postcss.config.mjs
-├── .env.local                    ← Supabase / GCP 環境變數（gitignored）
+├── .env                          ← Supabase / GCP 環境變數（gitignored；.env.local 亦可）
+├── .env.example                  ← 環境變數樣板（committed，.gitignore 唯一 opt-in 的 .env*）
 ├── gcp-keys.json                 ← GCP service account（gitignored）
 │
 ├── app/                          ← Next.js App Router
@@ -50,6 +51,7 @@ life-tracker/
 │   ├── game-record/page.jsx
 │   ├── gallery/page.jsx
 │   ├── todo/page.jsx
+│   ├── nocturne/page.jsx         ← 「夜籤」前端（19:00 後解鎖）
 │   └── api/
 │       └── upload/route.js       ← GCS 上傳 endpoint（dynamic bucket + SHA-256 dedup）
 │
@@ -59,9 +61,11 @@ life-tracker/
 │                                    DatePicker / DropdownSelect / ToggleSwitch /
 │                                    SubmitButton / ImageUpload / ImageUploadGallery
 │
-├── configs/menu.js               ← 首頁 7 個 app 的設定（名稱/路徑/icon/顏色）
+├── configs/menu.js               ← 首頁 8 個 app 的設定（名稱/路徑/icon/顏色）
 ├── hooks/useAuth.js              ← Supabase session 訂閱 hook
-├── lib/supabase.js               ← Supabase client（anon key）
+├── lib/
+│   ├── supabase.js               ← Supabase client（publishable key）
+│   └── nocturne.js               ← 夜籤邏輯（權重抽籤 + localStorage 紀錄，client-only）
 │
 ├── scripts/
 │   ├── config.mjs                ← 爬蟲設定（看板 ID 列表 / 關鍵字過濾）
