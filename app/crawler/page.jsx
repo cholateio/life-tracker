@@ -216,11 +216,15 @@ export default function CrawlerPage() {
         }));
 
         try {
-            await supabase
+            // supabase query builder 在 DB 錯誤(RLS/constraint)時 resolve 帶 error 而非 reject，
+            // 不解構檢查 error 會讓失敗靜默通過，UI 已樂觀標為已讀但實際沒同步。
+            const { error } = await supabase
                 .from('Bahamut')
                 .upsert({ url, status: 'read', created_at: new Date().toISOString() }, { onConflict: 'url' });
+            if (error) throw error;
         } catch (e) {
             console.error('Failed to mark read:', e);
+            toast.error('標記已讀同步失敗，但已在本地更新');
         }
     };
 
@@ -239,9 +243,11 @@ export default function CrawlerPage() {
         toast.success('已隱藏文章');
 
         try {
-            await supabase
+            // 同 handlePostClick：需解構 error，否則 DB 層失敗被靜默吞掉。
+            const { error } = await supabase
                 .from('Bahamut')
                 .upsert({ url, status: 'deleted', created_at: new Date().toISOString() }, { onConflict: 'url' });
+            if (error) throw error;
         } catch (e) {
             console.error('Failed to delete:', e);
             toast.error('同步失敗，但已在本地隱藏');
