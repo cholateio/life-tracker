@@ -91,7 +91,7 @@ export default function GalleryUploadPage() {
             };
 
             // 🌟 4. 寫入 Supabase
-            const { error } = await supabase.from('Gallery').insert([payload]);
+            const { error } = await supabase.from('portfolio_gallery').insert([payload]);
 
             if (error) {
                 // 如果 hash 被設定為 Unique (唯一鍵)，抓取重複上傳的錯誤

@@ -162,7 +162,7 @@ export default function CrawlerPage() {
                 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 3);
 
                 const { data: historyData, error } = await supabase
-                    .from('Bahamut')
+                    .from('life_bahamut')
                     .select('url, status')
                     .gte('created_at', thirtyDaysAgo.toISOString());
 
@@ -219,7 +219,7 @@ export default function CrawlerPage() {
             // supabase query builder 在 DB 錯誤(RLS/constraint)時 resolve 帶 error 而非 reject，
             // 不解構檢查 error 會讓失敗靜默通過，UI 已樂觀標為已讀但實際沒同步。
             const { error } = await supabase
-                .from('Bahamut')
+                .from('life_bahamut')
                 .upsert({ url, status: 'read', created_at: new Date().toISOString() }, { onConflict: 'url' });
             if (error) throw error;
         } catch (e) {
@@ -245,7 +245,7 @@ export default function CrawlerPage() {
         try {
             // 同 handlePostClick：需解構 error，否則 DB 層失敗被靜默吞掉。
             const { error } = await supabase
-                .from('Bahamut')
+                .from('life_bahamut')
                 .upsert({ url, status: 'deleted', created_at: new Date().toISOString() }, { onConflict: 'url' });
             if (error) throw error;
         } catch (e) {

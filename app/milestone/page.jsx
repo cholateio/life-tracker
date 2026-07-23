@@ -55,7 +55,7 @@ export default function MilestoneRecordPage() {
                 description: formData.description,
             };
 
-            const { error } = await supabase.from('Milestone').insert([payload]);
+            const { error } = await supabase.from('portfolio_milestones').insert([payload]);
 
             if (error) throw error;
 

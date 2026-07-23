@@ -83,7 +83,7 @@ export default function AnimeRecordPage() {
                 thumbnail: uploadedImageUrl,
             };
 
-            const { error } = await supabase.from('Anime').insert([payload]);
+            const { error } = await supabase.from('portfolio_anime').insert([payload]);
 
             if (error) throw error;
 

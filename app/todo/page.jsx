@@ -73,7 +73,7 @@ export default function TodoPage() {
             setIsLoading(true);
             const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
             const { data, error } = await supabase
-                .from('Todo')
+                .from('life_todo')
                 .select('*')
                 .or(`is_completed.eq.false,and(is_completed.eq.true,completed_at.gte.${yesterday})`)
                 .order('due_date', { ascending: true, nullsFirst: false });
@@ -100,7 +100,7 @@ export default function TodoPage() {
         try {
             setIsSubmitting(true);
             const { data, error } = await supabase
-                .from('Todo')
+                .from('life_todo')
                 .insert([
                     {
                         content: formData.content,
@@ -135,7 +135,7 @@ export default function TodoPage() {
 
         try {
             const { error } = await supabase
-                .from('Todo')
+                .from('life_todo')
                 .update({ is_completed: newStatus, completed_at: timestamp })
                 .eq('id', id);
 

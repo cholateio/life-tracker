@@ -52,7 +52,7 @@ export default function GameRecordPage() {
             try {
                 // 抓取 Game table 最新 3 筆資料 (依建立時間或更新時間排序)
                 const { data, error } = await supabase
-                    .from('Games')
+                    .from('portfolio_games')
                     .select('*')
                     .order('created_at', { ascending: false })
                     .limit(3);
@@ -150,10 +150,10 @@ export default function GameRecordPage() {
             // 根據 editingId 決定是更新還是新增
             let dbError;
             if (editingId) {
-                const { error } = await supabase.from('Games').update(payload).eq('id', editingId);
+                const { error } = await supabase.from('portfolio_games').update(payload).eq('id', editingId);
                 dbError = error;
             } else {
-                const { error } = await supabase.from('Games').insert([payload]);
+                const { error } = await supabase.from('portfolio_games').insert([payload]);
                 dbError = error;
             }
 
