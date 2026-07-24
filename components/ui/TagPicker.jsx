@@ -11,7 +11,12 @@ export default function TagPicker({ label = 'Tags', value = [], options = [], on
     // after being deselected (options only carries what the DB already knows).
     const [extra, setExtra] = useState([]);
 
-    const allOptions = [...options, ...extra.filter((t) => !options.includes(t))];
+    // Case-insensitive: a tag typed before the options query resolved would
+    // otherwise survive as a second chip once the DB's own casing arrives.
+    const allOptions = [
+        ...options,
+        ...extra.filter((t) => !options.some((o) => o.toLowerCase() === t.toLowerCase())),
+    ];
 
     const toggle = (tag) => {
         onChange(value.includes(tag) ? value.filter((t) => t !== tag) : [...value, tag]);

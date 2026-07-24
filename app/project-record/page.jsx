@@ -28,6 +28,19 @@ const slugify = (s) =>
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
 
+// The slug field is hand-editable, so slugify() is not the only path into it.
+// portfolio serves projects from a single /project/[slug] segment and already
+// owns /project/tags — anything else there resolves to the wrong page or a 404.
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const RESERVED_SLUGS = new Set(['tags']);
+
+// toISOString() is UTC: in UTC+8 it returns yesterday until 08:00 local, and
+// that date drives portfolio's ordering.
+const todayLocal = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export default function ProjectRecordPage() {
     const { isAuthenticated, isChecking } = useAuth();
     const router = useRouter();
@@ -40,7 +53,7 @@ export default function ProjectRecordPage() {
         slug: '',
         intro: '',
         description: '',
-        date: new Date().toISOString().split('T')[0],
+        date: todayLocal(),
         stack: [],
         github: '',
         demo: '',
@@ -81,6 +94,12 @@ export default function ProjectRecordPage() {
         try {
             const slug = formData.slug.trim();
             if (!slug) throw new Error('Slug 不可為空');
+            if (!SLUG_PATTERN.test(slug)) {
+                throw new Error('Slug 只能用小寫英數字與連字號 (如: life-tracker)');
+            }
+            if (RESERVED_SLUGS.has(slug)) {
+                throw new Error(`Slug「${slug}」與 portfolio 的標籤頁路由衝突，請換一個`);
+            }
 
             // portfolio's getProjectBySlug uses .single(), and the column has no
             // unique constraint — a duplicate slug breaks that project's detail page.
@@ -123,7 +142,11 @@ export default function ProjectRecordPage() {
                 title: formData.title.trim(),
                 slug,
                 // Always an array: portfolio's detail page maps over stack with no null guard.
-                stack: formData.stack,
+                // Canonicalized to the DB's casing — a tag added before the options query
+                // resolved keeps whatever was typed, which would split portfolio's tag pages.
+                stack: formData.stack.map(
+                    (t) => stackOptions.find((o) => o.toLowerCase() === t.toLowerCase()) ?? t,
+                ),
                 intro: formData.intro.trim() || null,
                 description: formData.description.trim() || null,
                 date: formData.date,
