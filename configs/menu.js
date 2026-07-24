@@ -1,4 +1,4 @@
-import { Moon, Landmark, Flag, Bot, Gamepad2, Tv, ListTodo, Dices } from 'lucide-react';
+import { Moon, Landmark, Flag, Bot, Gamepad2, Tv, ListTodo, Dices, FolderGit2 } from 'lucide-react';
 
 export const MENU_CONFIG = [
     {
@@ -56,5 +56,12 @@ export const MENU_CONFIG = [
         href: '/nocturne',
         icon: Dices,
         color: '#4a3f6b',
+    },
+    {
+        name: '專案紀錄',
+        desc: 'Project Record',
+        href: '/project-record',
+        icon: FolderGit2,
+        color: '#0f766e',
     },
 ];
