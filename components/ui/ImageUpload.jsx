@@ -6,10 +6,10 @@ import { ImagePlus, RefreshCw, Loader2 } from 'lucide-react';
 import { Label } from './FormBase';
 
 /**
- * 圖片上傳與預處理元件
- * 負責選取圖片、使用 Canvas 強制縮放為 720x1280 (9:16)、轉為 JPEG，並提供預覽。
+ * Picks an image, cover-crops it to width x height via Canvas, re-encodes it as
+ * JPEG, and hands the resulting File to onChange. Defaults to 720x1280 (9:16).
  */
-export default function ImageUpload({ label = 'Photo Record', onChange }) {
+export default function ImageUpload({ label = 'Photo Record', onChange, width = 720, height = 1280 }) {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const fileInputRef = useRef(null);
@@ -26,18 +26,20 @@ export default function ImageUpload({ label = 'Photo Record', onChange }) {
         reader.onload = (event) => {
             const img = new Image();
             img.onload = () => {
-                // 2. 建立 Canvas 並強制設定目標解析度
-                const TARGET_WIDTH = 720;
-                const TARGET_HEIGHT = 1280;
                 const canvas = document.createElement('canvas');
-                canvas.width = TARGET_WIDTH;
-                canvas.height = TARGET_HEIGHT;
+                canvas.width = width;
+                canvas.height = height;
                 const ctx = canvas.getContext('2d');
 
-                // 3. 繪製圖片 (無條件縮放，不裁切。若原圖非 9:16 會被拉伸)
-                ctx.drawImage(img, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+                // Cover crop, not stretch: consumers render the stored file without
+                // object-cover (portfolio ProjectItem uses only w-full), so the file's
+                // own ratio drives their layout and any distortion ships to production.
+                const scale = Math.max(width / img.width, height / img.height);
+                const drawW = img.width * scale;
+                const drawH = img.height * scale;
+                ctx.drawImage(img, (width - drawW) / 2, (height - drawH) / 2, drawW, drawH);
 
-                // 4. 將 Canvas 轉換為 JPEG 格式的 Blob (0.85 為壓縮品質，平衡畫質與檔案大小)
+                // 2. 將 Canvas 轉換為 JPEG 格式的 Blob (0.85 為壓縮品質，平衡畫質與檔案大小)
                 canvas.toBlob(
                     (blob) => {
                         if (blob) {
@@ -84,7 +86,12 @@ export default function ImageUpload({ label = 'Photo Record', onChange }) {
             {/* 上傳與預覽區塊 - 針對手機版設計的大觸控目標 */}
             <div
                 onClick={!isProcessing ? triggerFileSelect : undefined}
-                className={`relative w-48 aspect-9/16 rounded-2xl overflow-hidden border-2 border-dashed transition-all flex items-center justify-center cursor-pointer ${
+                /* Inline style, not a Tailwind class: aspect-[w/h] can't be composed from
+                   runtime values — Tailwind extracts class names statically at build time. */
+                style={{ aspectRatio: `${width} / ${height}` }}
+                className={`relative ${
+                    height > width ? 'w-48' : 'w-full max-w-sm'
+                } rounded-2xl overflow-hidden border-2 border-dashed transition-all flex items-center justify-center cursor-pointer ${
                     previewUrl
                         ? 'border-[#3f4a4e]/20 shadow-xl shadow-[#3f4a4e]/10'
                         : 'border-[#3f4a4e]/40 hover:bg-[#3f4a4e]/5 active:scale-95'
@@ -115,7 +122,9 @@ export default function ImageUpload({ label = 'Photo Record', onChange }) {
                     <div className="flex flex-col items-center justify-center text-[#3f4a4e]/50 p-4 text-center">
                         <ImagePlus size={48} strokeWidth={1.5} className="mb-4 text-[#3f4a4e]/40" />
                         <span className="font-bold text-sm uppercase tracking-widest">Tap to Upload</span>
-                        <span className="text-xs mt-2 opacity-60">720 x 1280 (JPG)</span>
+                        <span className="text-xs mt-2 opacity-60">
+                            {width} x {height} (JPG)
+                        </span>
                     </div>
                 )}
             </div>
