@@ -5,33 +5,33 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Label, commonInputStyles } from './FormBase';
 
+// Tag identity is case-insensitive in EVERY comparison below. portfolio's tag pages
+// match with .contains('stack', [tag]), so 'supabase' next to 'Supabase' splits one
+// tag into two pages, one of them empty. `options` arrives asynchronously, so a tag
+// the user typed first can be a case variant of one the DB already knows — comparing
+// exactly anywhere would leave that variant selected, unselectable, or duplicated.
+const eq = (a, b) => a.toLowerCase() === b.toLowerCase();
+const has = (list, tag) => list.some((t) => eq(t, tag));
+
 export default function TagPicker({ label = 'Tags', value = [], options = [], onChange }) {
     const [draft, setDraft] = useState('');
     // Tags added this session, so a newly created tag stays visible as a chip
     // after being deselected (options only carries what the DB already knows).
     const [extra, setExtra] = useState([]);
 
-    // Case-insensitive: a tag typed before the options query resolved would
-    // otherwise survive as a second chip once the DB's own casing arrives.
-    const allOptions = [
-        ...options,
-        ...extra.filter((t) => !options.some((o) => o.toLowerCase() === t.toLowerCase())),
-    ];
+    const allOptions = [...options, ...extra.filter((t) => !has(options, t))];
 
     const toggle = (tag) => {
-        onChange(value.includes(tag) ? value.filter((t) => t !== tag) : [...value, tag]);
+        onChange(has(value, tag) ? value.filter((t) => !eq(t, tag)) : [...value, tag]);
     };
 
     const addDraft = () => {
         const raw = draft.trim();
         if (!raw) return;
-        // Case-insensitive merge: portfolio's tag pages match with
-        // .contains('stack', [tag]), so 'supabase' alongside 'Supabase' would
-        // split one tag into two, one of which lists nothing.
-        const existing = allOptions.find((t) => t.toLowerCase() === raw.toLowerCase());
+        const existing = allOptions.find((t) => eq(t, raw));
         const tag = existing ?? raw;
         if (!existing) setExtra((prev) => [...prev, tag]);
-        if (!value.includes(tag)) onChange([...value, tag]);
+        if (!has(value, tag)) onChange([...value, tag]);
         setDraft('');
     };
 
@@ -41,7 +41,7 @@ export default function TagPicker({ label = 'Tags', value = [], options = [], on
 
             <div className="flex flex-wrap gap-2 mt-2">
                 {allOptions.map((tag) => {
-                    const selected = value.includes(tag);
+                    const selected = has(value, tag);
                     return (
                         <button
                             key={tag}
