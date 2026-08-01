@@ -1,8 +1,12 @@
 {
   "headlines": [
     {
-      "title": "【CJ 26】開發中魂系動作遊戲《達巴：水痕之地》電玩瘋實際遊玩影片曝光",
-      "url": "https://gnn.gamer.com.tw/detail.php?sn=309218"
+      "title": "【CJ 26】《達巴：水痕之地》ChinaJoy 試玩版體驗心得 享受主副武器帶來的多流派戰鬥體驗",
+      "url": "https://gnn.gamer.com.tw/detail.php?sn=309223"
+    },
+    {
+      "title": "【CJ 26】2026 ChinaJoy Cosplayer 集錦 網羅開展首日眾多人氣角色",
+      "url": "https://gnn.gamer.com.tw/detail.php?sn=309222"
     },
     {
       "title": "【CJ 26】大東來了！汪東城化身《英雄聯盟》英雄亞菲利歐登場",
@@ -27,10 +31,6 @@
     {
       "title": "因營運法人 Ambition 結束營業《文豪 Stray Dogs 迷犬怪奇譚》宣布明終止服務 將不進行退款",
       "url": "https://gnn.gamer.com.tw/detail.php?sn=309076"
-    },
-    {
-      "title": "踏上尋找摯愛的旅途！ 《空之軌跡 the 2nd》序章試玩報導 以新要素強化既有好評玩法",
-      "url": "https://gnn.gamer.com.tw/detail.php?sn=309056"
     }
   ],
   "boards": [
@@ -38,21 +38,45 @@
       "name": "卡厄思夢境",
       "posts": [
         {
+          "title": "【閒聊】移除遊戲後電腦出問題的看一下",
+          "url": "C.php?bsn=80099&snA=3632&tnum=47",
+          "time": "3 小時前",
+          "brief": "簡單的說就是官方提供的反安裝沒刪乾淨 還有一個防作弊在跑 選擇以系統管理員執行cmd（命令提示字元） 輸入 SC DELETE ucldr_chaoszeronightmare_gl 然後去資料夾裡面刪掉整個Wellbia.com C:\\Pro"
+        },
+        {
+          "title": "【問題】補千鶴好用嗎",
+          "url": "C.php?bsn=80099&snA=5415&tnum=1",
+          "time": "7 小時前",
+          "brief": "如標題，送的自選卷裡剩下沒有的角色只剩下千鶴了。 原本想給喜歡角色補命座強化的， 但突然又想到錯過得到未持有角色的機會似乎又很可惜， 因此想來問一問：千鶴又強又好用"
+        },
+        {
+          "title": "【閒聊】偶像x馬尾x修女 通關螺旋塔",
+          "url": "C.php?bsn=80099&snA=5414&tnum=1",
+          "time": "9 小時前",
+          "brief": "概念 馬尾負責清雜魚加濾牌 讓偶像能不打偏專心輸出主要目標 修女：聽說我被削弱了，我來湊一咖的 以下分享牌組及裝備 泰妮：低調…低調 希爾德 拉弓我選擇中立標記，為了清"
+        },
+        {
+          "title": "【閒聊】感覺這遊戲要死了。。。",
+          "url": "C.php?bsn=80099&snA=5400&tnum=5",
+          "time": "12 小時前",
+          "brief": "剛開服時說不會有限定，結果天使出來啪啪打臉，用節日限定圓回來了，市長還能說是半週年，但現在是演都不演了，是打算一個賽季一個限定嗎？就算米家遊戲的原神裡的七神，絕"
+        },
+        {
           "title": "【情報】7/29～8/14 STOVE官方社群活動",
           "url": "C.php?bsn=80099&snA=5410&tnum=3",
-          "time": "2 小時前",
+          "time": "14 小時前",
           "brief": "將所有絕望歸零！ 大家好。這裡是《卡厄思夢境》。 曠世謀略家「希爾德」登場！ 立刻來確認「希爾德」的作戰會議吧！ 【希爾德的作戰會議活動】 ✅活動期間 - 台灣時間7月29日("
         },
         {
           "title": "【閒聊】分享你在出擊中拿過的超模神卡",
           "url": "C.php?bsn=80099&snA=5412&tnum=2",
-          "time": "2 小時前",
+          "time": "17 小時前",
           "brief": "今天玩出擊意外閃出的組合，未曾想過居然超級強力，後面剛好遇到複製命運，直接複製兩張來用。你有遇過哪些抓了直接解放大腦的神卡嗎？"
         },
         {
           "title": "【心得】商店新增SKIN",
           "url": "C.php?bsn=80099&snA=5408&tnum=3",
-          "time": "5 小時前",
+          "time": "18 小時前",
           "brief": "如題在商店挖資源才發現這次更新有賣SKIN 有人有買了看局內還有沒有靈魂小褲褲嗎？"
         },
         {
@@ -79,9 +103,21 @@
       "name": "闇影詩章 Shadowverse",
       "posts": [
         {
+          "title": "【問題】刪除帳號之後可以再次綁定嗎",
+          "url": "C.php?bsn=29330&snA=27834&tnum=1",
+          "time": "2 小時前",
+          "brief": "如題 如果把帳號刪除之後，可以再次用原本綁定的google帳號綁定新的嗎？ 我不知道可以刷主戰者就綁定了⋯"
+        },
+        {
+          "title": "【問題】打上GM後還有必要繼續往上打嗎",
+          "url": "C.php?bsn=29330&snA=27833&tnum=1",
+          "time": "3 小時前",
+          "brief": "我每季都一定會打到GM0但後面的16個等級就沒什麼動力了 想確認後面等級往上升還有甚麼獎勵之類的嗎 沒有的話大概就每天佛心打了"
+        },
+        {
           "title": "【問題】可以幫忙看看怎組比較好嗎?",
           "url": "C.php?bsn=29330&snA=27832&tnum=1",
-          "time": "5 小時前",
+          "time": "18 小時前",
           "brief": "新手送的兩組都選精靈，有大神能幫忙看看目前怎麼組比較好嗎?沒有玩過精靈，順便指導該如何出牌套路及起手留哪一張! 先謝謝大大們~"
         },
         {
@@ -116,19 +152,19 @@
         {
           "title": "【心得】跟風畫個各職業最愛幹員~",
           "url": "C.php?bsn=33651&snA=12622&tnum=2",
-          "time": "1 小時前",
+          "time": "13 小時前",
           "brief": ""
         },
         {
           "title": "【問題】回鍋請教各種雜七雜八的問題",
           "url": "C.php?bsn=33651&snA=12621&tnum=4",
-          "time": "6 小時前",
+          "time": "18 小時前",
           "brief": "各位博士前輩們好，我是從塔衛二穿越回泰拉的回坑博士時隔多年找回以前的老帳號超級感動的 目前主要是慢慢體驗劇情看圖文小說為主 關卡能用老幹員打過，就盡量不用太過獨當"
         },
         {
           "title": "【攻略】向量突破#2巫術之夜 未來視作業集分享",
           "url": "C.php?bsn=33651&snA=12615&tnum=2",
-          "time": "6 小時前",
+          "time": "19 小時前",
           "brief": "老樣子宣傳一下跟朋友開的方舟粉專 ~屑博備忘錄~ 主要分享與提醒大家關於遊戲、活動的資訊 歡迎按讚追蹤 - 向量突破#2巫術之夜 一圖懶人包 首周打完核心突破(VEC-12)才能拿到鍍層"
         },
         {
@@ -149,25 +185,37 @@
       "name": "明日方舟：終末地",
       "posts": [
         {
+          "title": "【閒聊】說說一點1.4劇情後關於DEATH的猜想",
+          "url": "C.php?bsn=74604&snA=4694&tnum=1",
+          "time": "41 分前",
+          "brief": "近來在看直播的一些回放，感覺有些點好像串起來了，所以把自己的一些猜想拋出來看看首先這裡提的DEATH就是序章那個閉目少女、1.4叫管管兄弟的基石 他初次登場是在管管序章的源"
+        },
+        {
           "title": "【情報】終末地回歸活動開跑",
-          "url": "C.php?bsn=74604&snA=4404&tnum=542",
-          "time": "3 小時前",
+          "url": "C.php?bsn=74604&snA=4404&tnum=543",
+          "time": "2 小時前",
           "brief": "《明日方舟：終末地》「協議邀約：重歸」活動開啟，完成回歸綁定即可獲得嵌晶玉等獎勵。邀請其他夥伴回歸，還可額外領取嵌晶玉獎勵！ https://endfield.gryphline.com/activity/relinkcall202"
+        },
+        {
+          "title": "【心得】熾燃！競技大會攻略｜雙人組隊推薦、全功率打法、獎勵與鍍層條件",
+          "url": "C.php?bsn=74604&snA=4691&tnum=4",
+          "time": "9 小時前",
+          "brief": "哈囉大家好，我是老宅，這次要來分享的是7/30才剛開放的新玩法「熾燃！競技大會！」，也就是之前前瞻看過的雙人關卡，先說結論，這次關卡是趣味成分為主，關卡本身的難度不"
         },
         {
           "title": "【討論】戰爭回響你們打了嗎? 輪次3開始",
           "url": "C.php?bsn=74604&snA=4427&tnum=94",
-          "time": "6 小時前",
+          "time": "18 小時前",
           "brief": "第3輪 沒什麼好說的 純純減速帶 第二輪 這次第三關難度比上次低 但要求高爆發的隊伍，洛西、電隊都很適合 第一輪 我能組火、電、洛西隊，主c都0+1 但就是差一點傷害，凹了超久"
         },
         {
-          "title": "【歌詞翻譯】Vermillion (Full) 朱砂（全）",
+          "title": "【歌詞翻譯】Vermilion (Full) 朱砂（全）",
           "url": "C.php?bsn=74604&snA=4693&tnum=1",
           "time": "昨天 23:33",
-          "brief": "In the air 氤氳中 In the water, the mirror reflection in the tears 水面下，鏡像倒映於眼淚 Weaving regrets of yesteryear 細織昔時追悔 Falling weight 重擔墜 Heavy like a chain, choking on the ash andrain 成枷鎖，灰"
+          "brief": "In the air 氤氳中 In the water, the mirror reflection in the tears 水面下，鏡像倒映於眼淚 Weaving regrets of yesteryear 細織昔時追悔 Falling weight 重擔墜 Heavy like a chain, choking on the ash and rain 成枷鎖，"
         },
         {
-          "title": "【歌詞翻譯】Vermillion 朱砂",
+          "title": "【歌詞翻譯】Vermilion 朱砂",
           "url": "C.php?bsn=74604&snA=4692&tnum=1",
           "time": "昨天 23:28",
           "brief": "At the edge 於邊境 Bearing ten thousand vows 忍負重誓千鈞 Drifting to the northern wake 北方餘波漂泊 Drop the blade 放下刀 Time washes out the wave 時光淘盡浪潮 A ray of day 晨光一縷 Sun breaks through the gray"
@@ -177,12 +225,6 @@
           "url": "C.php?bsn=74604&snA=4689&tnum=2",
           "time": "昨天 23:06",
           "brief": "我看標示說這輪已經是這期的最後一輪，也就是不會再更新的意思吧 可是我總共只遇過6種不同的關卡，還有兩種沒打過大家也是這樣嗎? 可是那兩關連名字都有應該是有做好才對吧"
-        },
-        {
-          "title": "【心得】熾燃！競技大會攻略｜雙人組隊推薦、全功率打法、獎勵與鍍層條件",
-          "url": "C.php?bsn=74604&snA=4691&tnum=3",
-          "time": "昨天 22:28",
-          "brief": "哈囉大家好，我是老宅，這次要來分享的是7/30才剛開放的新玩法「熾燃！競技大會！」，也就是之前前瞻看過的雙人關卡，先說結論，這次關卡是趣味成分為主，關卡本身的難度不"
         },
         {
           "title": "【心得】陳千語：當時我害怕極了。",
@@ -275,7 +317,14 @@
     },
     {
       "name": "雀魂麻將majsoul",
-      "posts": []
+      "posts": [
+        {
+          "title": "【情報】《雀魂麻將majsoul》官方 2026 年「麻將之日＆牌之日」宣傳圖",
+          "url": "C.php?bsn=36476&snA=4084&tnum=1",
+          "time": "1 小時前",
+          "brief": "8 月 1 日為日本「麻將之日＆牌之日」 為此紀念《雀魂麻將majsoul》官方 於 X（推特）釋出「カット」送上的宣傳圖"
+        }
+      ]
     },
     {
       "name": "緋染天空 Heaven Burns Red",
@@ -295,5 +344,5 @@
       ]
     }
   ],
-  "generatedAt": "2026/8/1 上午6:59:19"
+  "generatedAt": "2026/8/1 下午7:16:21"
 }
