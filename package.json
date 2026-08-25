@@ -14,6 +14,7 @@
         "@serwist/next": "^9.4.2",
         "@supabase/supabase-js": "^2.89.0",
         "clsx": "^2.1.1",
+        "exif-reader": "^2.0.3",
         "lucide-react": "^0.562.0",
         "next": "^16.1.6",
         "puppeteer-extra": "^3.3.6",
@@ -23,6 +24,7 @@
         "react-markdown": "^10.1.0",
         "remark-gfm": "^4.0.1",
         "serwist": "^9.4.2",
+        "sharp": "^0.35.3",
         "sonner": "^2.0.7"
     },
     "devDependencies": {
