@@ -19,6 +19,8 @@ Google Cloud Storage（圖片 thumbnail / gallery 雙 bucket），部署在 Verc
 - PWA: Serwist（`@serwist/next`，`app/sw.js` 為 SW source；dev 模式關閉）
 - Crawler: Puppeteer + puppeteer-extra-stealth（`scripts/crawl-to-file.mjs`，產出 `public/daily-news.json`）
 - Build/run: `npm run dev` / `npm run build`（`next ... --webpack`，非 Turbopack）/ `npm run start`
+- Package manager: **pnpm**（`pnpm-lock.yaml`；node_modules 是 pnpm 結構，`npm install` 會直接炸——裝依賴一律 `pnpm add`）
+- Image processing: sharp + exif-reader（`/api/screenshots` 截圖管線用）
 - Lint: ESLint 9 + `eslint-config-next`（`npm run lint`）
 - Test: 無自動測試（刻意決定）— 用 `npm run lint` + `npm run build` + `npm run dev` 手動驗證，不要新增 test framework
 - CI/CD: GitHub Actions（`.github/workflows/daily-crawler.yml`，每天 UTC 10:00 / 22:00 跑爬蟲並 commit `public/daily-news.json`）；應用程式部署 Vercel
@@ -53,18 +55,22 @@ life-tracker/
 │   ├── todo/page.jsx
 │   ├── nocturne/page.jsx         ← 「夜籤」前端（19:00 後解鎖）
 │   └── api/
-│       └── upload/route.js       ← GCS 上傳 endpoint（dynamic bucket + SHA-256 dedup）
+│       ├── upload/route.js       ← GCS 上傳 endpoint（dynamic bucket + SHA-256 dedup）
+│       └── screenshots/route.js  ← 遊戲截圖管線（sharp 1920/640 WebP + EXIF + GCS + DB）
 │
 ├── components/
 │   ├── layout/RecordPageLayout.jsx
+│   ├── game-record/              ← v2 記錄端：GameList / GameForm / DayForm /
+│   │                                ScreenshotUploader / TemperaturePicker / CounterStepper
 │   └── ui/                       ← FormBase / FormInput / FormTextarea /
 │                                    DatePicker / DropdownSelect / ToggleSwitch /
-│                                    SubmitButton / ImageUpload / ImageUploadGallery
+│                                    SubmitButton / ImageUpload / ImageUploadGallery / TagPicker
 │
 ├── configs/menu.js               ← 首頁 8 個 app 的設定（名稱/路徑/icon/顏色）
 ├── hooks/useAuth.js              ← Supabase session 訂閱 hook
 ├── lib/
 │   ├── supabase.js               ← Supabase client（publishable key）
+│   ├── games.js                  ← gaming-record v2 client 資料層（CRUD + 排序/日期工具）
 │   └── nocturne.js               ← 夜籤邏輯（權重抽籤 + localStorage 紀錄，client-only）
 │
 ├── scripts/
@@ -80,8 +86,12 @@ life-tracker/
 ├── documents/
 │   └── setup_gcp.md              ← GCP 設定步驟筆記
 │
+├── supabase/
+│   └── migrations/               ← 手動執行的 SQL（本機無 DDL 權限，貼 Supabase SQL editor）
+│
 ├── docs/
 │   ├── decisions/                ← ADRs
+│   ├── specs/                    ← 正式規格（gaming-record-v2.md 為 game-record 的需求真相源）
 │   └── plans/                    ← saved plans from superpowers
 │
 ├── .github/workflows/

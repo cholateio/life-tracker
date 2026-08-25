@@ -2,9 +2,9 @@
 # user-owned:kit 永不覆蓋。狀態/指令/付費服務改變時同步本檔,並更新 updated。
 
 name = "life-tracker"
-status = "done"            # active | mvp | done | paused | abandoned
-status_note = "8 功能頁加睡眠 backfill 全上線、表名對齊命名慣例、production 正常運作;已轉維護模式,後續擴充可從睡眠儀表板或睡前提醒推播著手"
-updated = 2026-07-23       # 最後一次人工確認本檔內容的日期
+status = "active"          # active | mvp | done | paused | abandoned
+status_note = "遊戲回憶相簿 v2 記錄端+呈現端代碼完成;待在 Supabase 執行 migration SQL 後實機測試"
+updated = 2026-08-26       # 最後一次人工確認本檔內容的日期
 
 [commands]                 # 只收「用它」的指令;開發指令見 package.json
 crawl = "node scripts/crawl-to-file.mjs"   # 手動跑巴哈日報爬蟲(平時由 GitHub Actions 每日自動跑)
