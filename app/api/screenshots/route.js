@@ -164,7 +164,9 @@ export async function POST(req) {
             .single();
 
         if (insertError) {
-            // 23505 = concurrent upload of the same file won the race; return the winner.
+            // 23505 = concurrent upload of the same file won the race; return
+            // the winner — but only after promotion succeeds, like every other
+            // success exit (the winner's own promotion may have died).
             if (insertError.code === '23505') {
                 const { data: winner } = await db
                     .from('portfolio_game_screenshots')
@@ -172,7 +174,13 @@ export async function POST(req) {
                     .eq('day_id', dayId)
                     .eq('hash', hash)
                     .maybeSingle();
-                if (winner) return NextResponse.json({ screenshot: winner, deduped: true }, { status: 200 });
+                if (winner) {
+                    const promotedWinner = await promoteDay(db, dayId);
+                    if (!promotedWinner) {
+                        return NextResponse.json({ error: 'day was removed during upload' }, { status: 409 });
+                    }
+                    return NextResponse.json({ screenshot: winner, deduped: true }, { status: 200 });
+                }
             }
             // If the insert failed because the game (and its days) were deleted
             // mid-flight, this upload may have landed AFTER the prefix purge —
