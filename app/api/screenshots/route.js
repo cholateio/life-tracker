@@ -64,6 +64,21 @@ function extractTakenAt(exifBuffer) {
     }
 }
 
+// Clears is_draft and reports whether the day still existed. Returns false on
+// error or zero matched rows — callers must not report success in that case.
+async function promoteDay(db, dayId) {
+    const { data, error } = await db
+        .from('portfolio_game_days')
+        .update({ is_draft: false })
+        .eq('id', dayId)
+        .select('id');
+    if (error) {
+        console.error('Day promotion failed:', error);
+        return false;
+    }
+    return (data || []).length > 0;
+}
+
 async function saveToGcs(path, buffer, contentType) {
     await storage.bucket(BUCKET).file(path).save(buffer, {
         metadata: { contentType, cacheControl: 'public, max-age=31536000' },
@@ -103,7 +118,13 @@ export async function POST(req) {
             .eq('hash', hash)
             .maybeSingle();
         if (dupError) throw dupError;
-        if (existing) return NextResponse.json({ screenshot: existing, deduped: true }, { status: 200 });
+        if (existing) {
+            // Retry-heal: a prior attempt may have inserted the row but died
+            // before promoting the day out of draft — promote here too.
+            const promoted = await promoteDay(db, dayId);
+            if (!promoted) return NextResponse.json({ error: 'day was removed during upload' }, { status: 409 });
+            return NextResponse.json({ screenshot: existing, deduped: true }, { status: 200 });
+        }
 
         // rotate() bakes in EXIF orientation so the derived WebPs render upright.
         const base = sharp(buffer).rotate();
@@ -164,15 +185,22 @@ export async function POST(req) {
                 .eq('id', gameId)
                 .maybeSingle();
             if (!gameCheckError && !gameStillThere) {
-                await storage.bucket(BUCKET).deleteFiles({ prefix: `games/${gameId}/` }).catch(() => {});
+                // Failure here is logged, not swallowed: DELETE ?game_id= is
+                // idempotent for a gone game, so the sweep can be re-run.
+                await storage
+                    .bucket(BUCKET)
+                    .deleteFiles({ prefix: `games/${gameId}/` })
+                    .catch((purgeError) => console.error(`Compensating purge failed for games/${gameId}/:`, purgeError));
             }
             throw insertError;
         }
 
         // First screenshot makes the day a real record: clear the draft flag so
-        // bare-row cleanup can never cascade this shot away. Non-fatal if it
-        // fails — cleanup counts screenshots before deleting anyway.
-        await db.from('portfolio_game_days').update({ is_draft: false }).eq('id', dayId);
+        // bare-row cleanup can never cascade this shot away. The result is
+        // checked — zero matched rows means a concurrent cleanup deleted the
+        // day (and cascaded this row), so a success response would be a lie.
+        const promoted = await promoteDay(db, dayId);
+        if (!promoted) return NextResponse.json({ error: 'day was removed during upload' }, { status: 409 });
 
         return NextResponse.json({ screenshot: row }, { status: 201 });
     } catch (error) {
