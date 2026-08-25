@@ -2,6 +2,15 @@
 // Screenshot pipeline (spec §3): one file per POST — hash dedup, sharp resize
 // to 1920/640 WebP, GCS upload, DB insert — all server-side so the phone
 // uploads each shot exactly once.
+//
+// Destructive-path invariants (codex adversarial review 2026-08-26):
+// - POST derives game_id from the day row; the client-supplied namespace is
+//   never trusted, and nothing touches sharp/GCS until the day is confirmed.
+// - Derived objects (_1920/_640 WebP) are keyed by (game, hash), so identical
+//   bytes uploaded under different extensions share them — reference counting
+//   is done on (game, hash), never on original_url alone.
+// - Every reference-count/verify failure fails CLOSED (skip GCS deletion;
+//   orphan objects are cheaper than broken albums).
 import { NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
 import { createClient } from '@supabase/supabase-js';
@@ -20,6 +29,8 @@ const storage = new Storage({
 
 const BUCKET = process.env.GCP_GALLERY_BUCKET_NAME || 'cholate-gallery';
 const BASE_URL = `https://storage.googleapis.com/${BUCKET}/`;
+
+const isIdString = (v) => typeof v === 'string' && /^\d+$/.test(v);
 
 // Auth gate identical to /api/upload: session lives in client localStorage, so
 // the token travels as a Bearer header; getUser(token) never touches the shared
@@ -60,6 +71,17 @@ async function saveToGcs(path, buffer, contentType) {
     return `${BASE_URL}${path}`;
 }
 
+// Remaining rows that reference this (game, hash) object set. Returns null on
+// query failure so callers can fail closed.
+async function countHashRefs(db, gameId, hash) {
+    const { count, error } = await db
+        .from('portfolio_game_screenshots')
+        .select('id, portfolio_game_days!inner(game_id)', { count: 'exact', head: true })
+        .eq('hash', hash)
+        .eq('portfolio_game_days.game_id', gameId);
+    return error ? null : (count ?? 0);
+}
+
 export async function POST(req) {
     try {
         const token = await authenticate(req);
@@ -68,21 +90,30 @@ export async function POST(req) {
         const formData = await req.formData();
         const file = formData.get('file');
         const dayId = formData.get('day_id');
-        const gameId = formData.get('game_id');
-        if (!file || !dayId || !gameId) {
-            return NextResponse.json({ error: 'file, day_id, game_id are required' }, { status: 400 });
+        if (!file || typeof file === 'string' || !isIdString(dayId)) {
+            return NextResponse.json({ error: 'file and numeric day_id are required' }, { status: 400 });
         }
+
+        const db = authedClient(token);
+        const { data: dayRow, error: dayError } = await db
+            .from('portfolio_game_days')
+            .select('id, game_id')
+            .eq('id', dayId)
+            .maybeSingle();
+        if (dayError) throw dayError;
+        if (!dayRow) return NextResponse.json({ error: 'day not found' }, { status: 400 });
+        const gameId = dayRow.game_id;
 
         const buffer = Buffer.from(await file.arrayBuffer());
         const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-        const db = authedClient(token);
 
-        const { data: existing } = await db
+        const { data: existing, error: dupError } = await db
             .from('portfolio_game_screenshots')
             .select('*')
             .eq('day_id', dayId)
             .eq('hash', hash)
             .maybeSingle();
+        if (dupError) throw dupError;
         if (existing) return NextResponse.json({ screenshot: existing, deduped: true }, { status: 200 });
 
         // rotate() bakes in EXIF orientation so the derived WebPs render upright.
@@ -102,10 +133,11 @@ export async function POST(req) {
 
         const ext = (file.name?.match(/\.[a-zA-Z0-9]+$/)?.[0] || '.jpg').toLowerCase();
         const prefix = `games/${gameId}/${hash}`;
+        const objectPaths = [`${prefix}${ext}`, `${prefix}_1920.webp`, `${prefix}_640.webp`];
         const [originalUrl, viewUrl, thumbUrl] = await Promise.all([
-            saveToGcs(`${prefix}${ext}`, buffer, file.type || 'image/jpeg'),
-            saveToGcs(`${prefix}_1920.webp`, viewBuf, 'image/webp'),
-            saveToGcs(`${prefix}_640.webp`, thumbBuf, 'image/webp'),
+            saveToGcs(objectPaths[0], buffer, file.type || 'image/jpeg'),
+            saveToGcs(objectPaths[1], viewBuf, 'image/webp'),
+            saveToGcs(objectPaths[2], thumbBuf, 'image/webp'),
         ]);
 
         const { data: row, error: insertError } = await db
@@ -131,6 +163,15 @@ export async function POST(req) {
                     .eq('hash', hash)
                     .maybeSingle();
                 if (winner) return NextResponse.json({ screenshot: winner, deduped: true }, { status: 200 });
+            } else {
+                // Insert failed after upload: remove the fresh objects unless a
+                // sibling row (same game+hash, other day) still references them.
+                const refs = await countHashRefs(db, gameId, hash);
+                if (refs === 0) {
+                    await Promise.allSettled(
+                        objectPaths.map((p) => storage.bucket(BUCKET).file(p).delete({ ignoreNotFound: true })),
+                    );
+                }
             }
             throw insertError;
         }
@@ -152,39 +193,47 @@ export async function DELETE(req) {
         const gameId = searchParams.get('game_id');
         const db = authedClient(token);
 
-        // game_id mode: DB rows are already gone via ON DELETE CASCADE — this
-        // call only purges the game's whole GCS prefix.
+        // game_id mode purges the whole GCS prefix, but only for a game that is
+        // confirmed gone from the DB — a stale/forged call on a live game is
+        // rejected instead of destroying its album.
         if (gameId) {
-            if (!/^\d+$/.test(gameId)) return NextResponse.json({ error: 'Invalid game_id' }, { status: 400 });
+            if (!isIdString(gameId)) return NextResponse.json({ error: 'Invalid game_id' }, { status: 400 });
+            const { data: game, error: gameError } = await db
+                .from('portfolio_games')
+                .select('id')
+                .eq('id', gameId)
+                .maybeSingle();
+            if (gameError) throw gameError;
+            if (game) {
+                return NextResponse.json({ error: 'game still exists; delete the game first' }, { status: 409 });
+            }
             await storage.bucket(BUCKET).deleteFiles({ prefix: `games/${gameId}/` });
             return NextResponse.json({ deleted: true }, { status: 200 });
         }
 
-        if (!id) return NextResponse.json({ error: 'id or game_id is required' }, { status: 400 });
+        if (!isIdString(id)) return NextResponse.json({ error: 'numeric id or game_id is required' }, { status: 400 });
 
         const { data: row, error: fetchError } = await db
             .from('portfolio_game_screenshots')
-            .select('*')
+            .select('*, portfolio_game_days(game_id)')
             .eq('id', id)
             .maybeSingle();
         if (fetchError) throw fetchError;
         if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        const ownerGameId = row.portfolio_game_days?.game_id;
 
         const { error: deleteError } = await db.from('portfolio_game_screenshots').delete().eq('id', id);
         if (deleteError) throw deleteError;
 
-        // Hash-named objects are shared when the same file was uploaded on
-        // another day — only delete from GCS once nothing references them.
-        const { count } = await db
-            .from('portfolio_game_screenshots')
-            .select('id', { count: 'exact', head: true })
-            .eq('original_url', row.original_url);
-        if ((count || 0) === 0) {
+        const refs = ownerGameId != null ? await countHashRefs(db, ownerGameId, row.hash) : null;
+        if (refs === 0) {
             const paths = [row.original_url, row.view_url, row.thumb_url]
                 .filter((u) => u?.startsWith(BASE_URL))
                 .map((u) => u.slice(BASE_URL.length));
             await Promise.all(paths.map((p) => storage.bucket(BUCKET).file(p).delete({ ignoreNotFound: true })));
         }
+        // refs === null (count query failed) or unknown owner: fail closed and
+        // keep the objects — orphans beat broken albums.
 
         return NextResponse.json({ deleted: true }, { status: 200 });
     } catch (error) {

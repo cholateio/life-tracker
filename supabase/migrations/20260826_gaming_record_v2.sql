@@ -13,7 +13,8 @@ drop table if exists portfolio_games cascade;
 create table portfolio_games (
   id               bigint generated always as identity primary key,
   title            text not null,
-  slug             text not null unique,
+  -- route-safe: a slug must address /collection/game/[slug] as one segment
+  slug             text not null unique check (slug <> '' and slug !~ '[/?#[:space:]]'),
   platform         text,
   studio           text,
   release_date     date,

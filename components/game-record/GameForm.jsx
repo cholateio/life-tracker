@@ -12,7 +12,7 @@ import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import SubmitButton from '@/components/ui/SubmitButton';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { Label, commonInputStyles } from '@/components/ui/FormBase';
-import { createGame, updateGame, deleteGame, getAccessToken, DEFAULT_ACTIVITY_OPTIONS } from '@/lib/games';
+import { createGame, updateGame, deleteGame, getAccessToken, slugify, DEFAULT_ACTIVITY_OPTIONS } from '@/lib/games';
 
 // Edits the option list itself (unlike TagPicker, which picks FROM a list).
 function OptionChipsEditor({ value, onChange }) {
@@ -157,7 +157,7 @@ export default function GameForm({ game, onDone, onCancel }) {
             };
 
             const { data, error } = isEdit
-                ? await updateGame(game.id, { ...payload, slug: form.slug.trim() || game.slug })
+                ? await updateGame(game.id, { ...payload, slug: form.slug.trim() ? slugify(form.slug) : game.slug })
                 : await createGame({ ...payload, slug: form.slug.trim() || undefined });
             if (error) throw error;
 

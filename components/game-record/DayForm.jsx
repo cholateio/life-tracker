@@ -41,15 +41,21 @@ export default function DayForm({ game, onBack }) {
     const [screenshots, setScreenshots] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploadsBusy, setUploadsBusy] = useState(false);
+    // Whether the row was bare IN THE DB when loaded/created. Cleanup keys off
+    // persisted state, not the local field snapshot: unsaved typing must not
+    // preserve a phantom play day (codex review 2026-08-26).
+    const loadedBareRef = useRef(false);
     // Latest state mirror for the date-switch/back cleanup, which runs from
     // stale closures.
-    const stateRef = useRef({ day: null, fields: EMPTY_FIELDS, screenshots: [] });
-    stateRef.current = { day, fields, screenshots };
+    const stateRef = useRef({ day: null, screenshots: [] });
+    stateRef.current = { day, screenshots };
 
     // A bare row that stayed bare is junk from browsing dates — remove it.
+    // Only fires when uploads are idle (navigation is blocked while busy).
     const cleanupIfEmpty = useCallback(async () => {
         const s = stateRef.current;
-        if (s.day && isDayEmpty(s.fields, s.screenshots)) await deleteDay(s.day.id);
+        if (s.day && loadedBareRef.current && s.screenshots.length === 0) await deleteDay(s.day.id);
     }, []);
 
     useEffect(() => {
@@ -68,6 +74,16 @@ export default function DayForm({ game, onBack }) {
                     row = created;
                 }
                 if (cancelled) return;
+                loadedBareRef.current = isDayEmpty(
+                    {
+                        temperature: row.temperature ?? null,
+                        counter_value: row.counter_value ?? null,
+                        progress_note: row.progress_note || '',
+                        activities: row.activities || [],
+                        one_line: row.one_line || '',
+                    },
+                    row.portfolio_game_screenshots || [],
+                );
                 setDay(row);
                 setFields({
                     temperature: row.temperature ?? null,
@@ -92,6 +108,10 @@ export default function DayForm({ game, onBack }) {
 
     const changeDate = async (newDate) => {
         if (newDate === date) return;
+        if (uploadsBusy) {
+            toast.error('截圖上傳中，請等它跑完');
+            return;
+        }
         await cleanupIfEmpty();
         setDay(null);
         setFields(EMPTY_FIELDS);
@@ -100,6 +120,10 @@ export default function DayForm({ game, onBack }) {
     };
 
     const handleBack = async () => {
+        if (uploadsBusy) {
+            toast.error('截圖上傳中，請等它跑完');
+            return;
+        }
         await cleanupIfEmpty();
         onBack();
     };
@@ -109,6 +133,10 @@ export default function DayForm({ game, onBack }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!day) return;
+        if (uploadsBusy) {
+            toast.error('截圖上傳中，請等它跑完再存');
+            return;
+        }
         setSaving(true);
         try {
             const { error } = await updateDay(day.id, {
@@ -149,10 +177,10 @@ export default function DayForm({ game, onBack }) {
                 <>
                     <ScreenshotUploader
                         dayId={day?.id}
-                        gameId={game.id}
                         screenshots={screenshots}
                         onAdd={(row) => setScreenshots((prev) => sortScreenshots([...prev.filter((s) => s.id !== row.id), row]))}
                         onRemove={(id) => setScreenshots((prev) => prev.filter((s) => s.id !== id))}
+                        onBusyChange={setUploadsBusy}
                     />
 
                     <div>

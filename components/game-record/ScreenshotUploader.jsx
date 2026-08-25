@@ -1,7 +1,7 @@
 // components/game-record/ScreenshotUploader.jsx
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ImagePlus, Loader2, RotateCw, X } from 'lucide-react';
 import { Label } from '@/components/ui/FormBase';
@@ -10,8 +10,10 @@ import { getAccessToken } from '@/lib/games';
 const MAX_CONCURRENT = 3;
 
 // Batch uploader (spec §3.4): pick many, no per-image flow. Files go through a
-// 3-wide queue to /api/screenshots; the server dedups by (day_id, hash).
-export default function ScreenshotUploader({ dayId, gameId, screenshots, onAdd, onRemove }) {
+// 3-wide queue to /api/screenshots; the server dedups by (day_id, hash) and
+// derives the game itself from day_id. onBusyChange tells the parent whether
+// uploads are still in flight so it can block date-switch/back navigation.
+export default function ScreenshotUploader({ dayId, screenshots, onAdd, onRemove, onBusyChange }) {
     const inputRef = useRef(null);
     // Pending/failed uploads only; finished ones live in the parent's list.
     const [items, setItems] = useState([]);
@@ -29,7 +31,6 @@ export default function ScreenshotUploader({ dayId, gameId, screenshots, onAdd, 
             const formData = new FormData();
             formData.append('file', item.file);
             formData.append('day_id', dayId);
-            formData.append('game_id', gameId);
             const res = await fetch('/api/screenshots', {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token ?? ''}` },
@@ -103,6 +104,10 @@ export default function ScreenshotUploader({ dayId, gameId, screenshots, onAdd, 
     const uploadingCount = items.filter((it) => it.status !== 'error').length;
     const errorItems = items.filter((it) => it.status === 'error');
     const total = screenshots.length + items.length;
+
+    useEffect(() => {
+        onBusyChange?.(uploadingCount > 0);
+    }, [uploadingCount, onBusyChange]);
 
     return (
         <div>
