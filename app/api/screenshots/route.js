@@ -153,10 +153,26 @@ export async function POST(req) {
                     .maybeSingle();
                 if (winner) return NextResponse.json({ screenshot: winner, deduped: true }, { status: 200 });
             }
-            // Other failures leave the objects in place (see header invariants);
-            // a concurrent same-hash POST may already reference them.
+            // If the insert failed because the game (and its days) were deleted
+            // mid-flight, this upload may have landed AFTER the prefix purge —
+            // re-purge now that the game is confirmed gone, so the last
+            // finishing POST sweeps every straggler (codex review round 3).
+            // For any other failure the objects stay (shared-hash TOCTOU).
+            const { data: gameStillThere, error: gameCheckError } = await db
+                .from('portfolio_games')
+                .select('id')
+                .eq('id', gameId)
+                .maybeSingle();
+            if (!gameCheckError && !gameStillThere) {
+                await storage.bucket(BUCKET).deleteFiles({ prefix: `games/${gameId}/` }).catch(() => {});
+            }
             throw insertError;
         }
+
+        // First screenshot makes the day a real record: clear the draft flag so
+        // bare-row cleanup can never cascade this shot away. Non-fatal if it
+        // fails — cleanup counts screenshots before deleting anyway.
+        await db.from('portfolio_game_days').update({ is_draft: false }).eq('id', dayId);
 
         return NextResponse.json({ screenshot: row }, { status: 201 });
     } catch (error) {

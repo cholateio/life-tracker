@@ -13,7 +13,7 @@ import { Label, commonInputStyles } from '@/components/ui/FormBase';
 import TemperaturePicker from './TemperaturePicker';
 import CounterStepper from './CounterStepper';
 import ScreenshotUploader from './ScreenshotUploader';
-import { fetchDay, createBareDay, updateDay, deleteDayIfBare, sortScreenshots, yesterdayStr } from '@/lib/games';
+import { fetchDay, createBareDay, updateDay, deleteDayIfDraft, sortScreenshots, yesterdayStr } from '@/lib/games';
 
 const EMPTY_FIELDS = {
     temperature: null,
@@ -23,17 +23,6 @@ const EMPTY_FIELDS = {
     one_line: '',
 };
 
-function isDayEmpty(fields, screenshots) {
-    return (
-        screenshots.length === 0 &&
-        !fields.temperature &&
-        fields.counter_value === null &&
-        !fields.progress_note &&
-        fields.activities.length === 0 &&
-        !fields.one_line
-    );
-}
-
 export default function DayForm({ game, onBack }) {
     const [date, setDate] = useState(yesterdayStr());
     const [day, setDay] = useState(null);
@@ -42,10 +31,6 @@ export default function DayForm({ game, onBack }) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploadsBusy, setUploadsBusy] = useState(false);
-    // Whether the row was bare IN THE DB when loaded/created. Cleanup keys off
-    // persisted state, not the local field snapshot: unsaved typing must not
-    // preserve a phantom play day (codex review 2026-08-26).
-    const loadedBareRef = useRef(false);
     // Synchronous mirror of `saving`: navigation handlers can fire inside the
     // same tick as submit, before the state update is visible (round 2).
     const savingRef = useRef(false);
@@ -54,12 +39,12 @@ export default function DayForm({ game, onBack }) {
     const stateRef = useRef({ day: null, screenshots: [] });
     stateRef.current = { day, screenshots };
 
-    // A bare row that stayed bare is junk from browsing dates — remove it.
-    // deleteDayIfBare re-checks bareness in the DB, so a save that slipped in
-    // anyway cannot be wiped by a stale local snapshot.
+    // Drop the auto-created row if it never became a record. The DB decides:
+    // deleteDayIfDraft only removes rows still flagged is_draft with no
+    // screenshots, so deliberately saved zero-input days survive (round 3).
     const cleanupIfEmpty = useCallback(async () => {
         const s = stateRef.current;
-        if (s.day && loadedBareRef.current && s.screenshots.length === 0) await deleteDayIfBare(s.day.id);
+        if (s.day && s.screenshots.length === 0) await deleteDayIfDraft(s.day.id);
     }, []);
 
     const navBlocked = () => {
@@ -90,16 +75,6 @@ export default function DayForm({ game, onBack }) {
                     row = created;
                 }
                 if (cancelled) return;
-                loadedBareRef.current = isDayEmpty(
-                    {
-                        temperature: row.temperature ?? null,
-                        counter_value: row.counter_value ?? null,
-                        progress_note: row.progress_note || '',
-                        activities: row.activities || [],
-                        one_line: row.one_line || '',
-                    },
-                    row.portfolio_game_screenshots || [],
-                );
                 setDay(row);
                 setFields({
                     temperature: row.temperature ?? null,
@@ -150,12 +125,15 @@ export default function DayForm({ game, onBack }) {
         savingRef.current = true;
         setSaving(true);
         try {
+            // is_draft: false makes the save durable — cleanup never touches
+            // non-draft rows, so a deliberate zero-input record is kept.
             const { error } = await updateDay(day.id, {
                 temperature: fields.temperature,
                 counter_value: fields.counter_value,
                 progress_note: fields.progress_note.trim() || null,
                 activities: fields.activities,
                 one_line: fields.one_line.trim() || null,
+                is_draft: false,
             });
             if (error) throw error;
             toast.success('已存起來');

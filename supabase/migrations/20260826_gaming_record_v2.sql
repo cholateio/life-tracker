@@ -36,6 +36,11 @@ create table portfolio_game_days (
   id            bigint generated always as identity primary key,
   game_id       bigint not null references portfolio_games(id) on delete cascade,
   date          date not null,
+  -- Rows are auto-created (draft) the moment the entry form opens so uploads
+  -- have a day_id; an explicit save or a screenshot insert clears the flag.
+  -- Cleanup may only delete draft rows — a deliberately saved zero-input day
+  -- is a legal record (spec: 零輸入可存) and must survive.
+  is_draft      boolean not null default true,
   temperature   text check (temperature in ('high','stuck','lost','wow','chill')),
   counter_value bigint,
   progress_note text,
@@ -78,7 +83,7 @@ left join lateral (
   select min(date) as first_played_at,
          max(date) as last_played_at,
          count(*)  as days_count
-  from portfolio_game_days where game_id = g.id
+  from portfolio_game_days where game_id = g.id and is_draft = false
 ) d on true
 left join lateral (
   select sc.thumb_url as first_thumb

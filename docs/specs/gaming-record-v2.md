@@ -70,6 +70,7 @@ create table portfolio_game_days (
   id            bigint generated always as identity primary key,
   game_id       bigint not null references portfolio_games(id) on delete cascade,
   date          date not null,
+  is_draft      boolean not null default true,  -- 開表單即建 row（draft）；明確儲存或首張截圖落地時轉 false。清理只刪 draft，「零輸入可存」的紀錄因此安全（2026-08-26 review r3）
   temperature   text check (temperature in ('high','stuck','lost','wow','chill')),
   counter_value bigint,                       -- money 類可負可大
   progress_note text,
