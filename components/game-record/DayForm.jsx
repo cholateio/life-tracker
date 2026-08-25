@@ -13,7 +13,7 @@ import { Label, commonInputStyles } from '@/components/ui/FormBase';
 import TemperaturePicker from './TemperaturePicker';
 import CounterStepper from './CounterStepper';
 import ScreenshotUploader from './ScreenshotUploader';
-import { fetchDay, createBareDay, updateDay, deleteDay, sortScreenshots, yesterdayStr } from '@/lib/games';
+import { fetchDay, createBareDay, updateDay, deleteDayIfBare, sortScreenshots, yesterdayStr } from '@/lib/games';
 
 const EMPTY_FIELDS = {
     temperature: null,
@@ -46,17 +46,33 @@ export default function DayForm({ game, onBack }) {
     // persisted state, not the local field snapshot: unsaved typing must not
     // preserve a phantom play day (codex review 2026-08-26).
     const loadedBareRef = useRef(false);
+    // Synchronous mirror of `saving`: navigation handlers can fire inside the
+    // same tick as submit, before the state update is visible (round 2).
+    const savingRef = useRef(false);
     // Latest state mirror for the date-switch/back cleanup, which runs from
     // stale closures.
     const stateRef = useRef({ day: null, screenshots: [] });
     stateRef.current = { day, screenshots };
 
     // A bare row that stayed bare is junk from browsing dates — remove it.
-    // Only fires when uploads are idle (navigation is blocked while busy).
+    // deleteDayIfBare re-checks bareness in the DB, so a save that slipped in
+    // anyway cannot be wiped by a stale local snapshot.
     const cleanupIfEmpty = useCallback(async () => {
         const s = stateRef.current;
-        if (s.day && loadedBareRef.current && s.screenshots.length === 0) await deleteDay(s.day.id);
+        if (s.day && loadedBareRef.current && s.screenshots.length === 0) await deleteDayIfBare(s.day.id);
     }, []);
+
+    const navBlocked = () => {
+        if (savingRef.current) {
+            toast.error('儲存中，請稍候');
+            return true;
+        }
+        if (uploadsBusy) {
+            toast.error('截圖上傳中，請等它跑完');
+            return true;
+        }
+        return false;
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -108,10 +124,7 @@ export default function DayForm({ game, onBack }) {
 
     const changeDate = async (newDate) => {
         if (newDate === date) return;
-        if (uploadsBusy) {
-            toast.error('截圖上傳中，請等它跑完');
-            return;
-        }
+        if (navBlocked()) return;
         await cleanupIfEmpty();
         setDay(null);
         setFields(EMPTY_FIELDS);
@@ -120,10 +133,7 @@ export default function DayForm({ game, onBack }) {
     };
 
     const handleBack = async () => {
-        if (uploadsBusy) {
-            toast.error('截圖上傳中，請等它跑完');
-            return;
-        }
+        if (navBlocked()) return;
         await cleanupIfEmpty();
         onBack();
     };
@@ -137,6 +147,7 @@ export default function DayForm({ game, onBack }) {
             toast.error('截圖上傳中，請等它跑完再存');
             return;
         }
+        savingRef.current = true;
         setSaving(true);
         try {
             const { error } = await updateDay(day.id, {
@@ -153,6 +164,7 @@ export default function DayForm({ game, onBack }) {
             console.error('DayForm save error:', error);
             toast.error(error.message || '儲存失敗');
         } finally {
+            savingRef.current = false;
             setSaving(false);
         }
     };

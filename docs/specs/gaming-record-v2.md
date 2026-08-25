@@ -172,15 +172,19 @@ life-tracker PWA 從手機相簿多選上傳。
 新依賴：`sharp`（Next.js 官方影像最佳化同款，Vercel 原生支援）。
 單張處理約 1–2 秒，50 張約一分多鐘，背景佇列進行、不阻塞表單填寫。
 
-### 3.2 `DELETE /api/screenshots`
+### 3.2 `DELETE /api/screenshots?id=`
 
-刪 row 後檢查同 `original_url` 是否仍被其他 row 引用（hash 命名下跨日重傳共用
-物件），無引用才刪 GCS 三個物件。
+**只刪 DB row，不碰 GCS**（2026-08-26 codex adversarial review 定案）：hash 命名
+的物件會被同 `(game, hash)` 的其他 row 共用，任何「先查引用再刪物件」都是
+check-then-delete 競態（併發 POST 可在計數後寫入新引用）。孤兒物件留給 §3.3
+的 prefix purge 統一清——單人規模的暫存孤兒成本遠低於相簿破圖。
 
 ### 3.3 刪整款遊戲
 
 DB：delete game → cascade 清 days / screenshots。
-GCS：刪 `games/{game_id}/` 整個 prefix，一次清空。
+GCS：呼叫 `DELETE /api/screenshots?game_id=`——server **先驗證該 game 已不存在
+於 DB**（活遊戲回 409），才刪 `games/{game_id}/` 整個 prefix。歷來孤兒物件在
+此一併清空。
 
 ### 3.4 上傳 UX
 
