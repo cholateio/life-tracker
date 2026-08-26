@@ -38,27 +38,43 @@ export default function DayForm({ game, onBack }) {
     // stale closures.
     const stateRef = useRef({ day: null, screenshots: [] });
     stateRef.current = { day, screenshots };
+    // Everything below is keyed by (game, date): an in-flight create from a
+    // previous date must never be handed to the new one, nor overwrite its
+    // state (codex review 2026-08-27).
+    const dayKey = `${game.id}|${date}`;
+    const keyRef = useRef(dayKey);
+    keyRef.current = dayKey;
     // Single-flight guard: three parallel uploads must not each insert a row
-    // for the same (game, date).
+    // for the same (game, date). Shape: { key, promise }.
     const ensureInFlightRef = useRef(null);
+    // Keys we tried to create a row for. If the INSERT committed but its
+    // response was lost, this is the only trace that a draft may exist.
+    const attemptedKeysRef = useRef(new Set());
 
     // The day row is created lazily — only when a screenshot upload or a save
     // actually needs a day_id. Browsing dates therefore leaves nothing behind.
     const ensureDay = useCallback(async () => {
-        if (stateRef.current.day) return stateRef.current.day;
-        if (!ensureInFlightRef.current) {
-            ensureInFlightRef.current = createBareDay(game.id, date)
-                .then(({ data, error }) => {
-                    if (error || !data) throw error || new Error('建立日記錄失敗');
+        const key = `${game.id}|${date}`;
+        const current = stateRef.current.day;
+        if (current && current.game_id === game.id && current.date === date) return current;
+        if (ensureInFlightRef.current?.key === key) return ensureInFlightRef.current.promise;
+
+        attemptedKeysRef.current.add(key);
+        const promise = createBareDay(game.id, date)
+            .then(({ data, error }) => {
+                if (error || !data) throw error || new Error('建立日記錄失敗');
+                // Adopt into view state only if the form is still on this date.
+                if (keyRef.current === key) {
                     stateRef.current = { ...stateRef.current, day: data };
                     setDay(data);
-                    return data;
-                })
-                .finally(() => {
-                    ensureInFlightRef.current = null;
-                });
-        }
-        return ensureInFlightRef.current;
+                }
+                return data;
+            })
+            .finally(() => {
+                if (ensureInFlightRef.current?.key === key) ensureInFlightRef.current = null;
+            });
+        ensureInFlightRef.current = { key, promise };
+        return promise;
     }, [game.id, date]);
 
     // Safety net for a row created for an upload that then failed: the DB
@@ -66,7 +82,20 @@ export default function DayForm({ game, onBack }) {
     // no screenshots, so deliberately saved zero-input days survive.
     const cleanupIfEmpty = useCallback(async () => {
         const s = stateRef.current;
-        if (s.day && s.screenshots.length === 0) await deleteDayIfDraft(s.day.id);
+        if (s.day && s.screenshots.length === 0) {
+            await deleteDayIfDraft(s.day.id);
+            return;
+        }
+        // No row in hand, but we did try to create one for this date: the
+        // INSERT may have committed with its response lost, so look it up
+        // instead of leaving an invisible draft behind.
+        if (!s.day && attemptedKeysRef.current.has(keyRef.current)) {
+            const [gameId, date] = keyRef.current.split('|');
+            const { data } = await fetchDay(Number(gameId), date);
+            if (data?.is_draft && (data.portfolio_game_screenshots || []).length === 0) {
+                await deleteDayIfDraft(data.id);
+            }
+        }
     }, []);
 
     const navBlocked = () => {

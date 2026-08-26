@@ -76,6 +76,9 @@ export default function ScreenshotUploader({ ensureDay, screenshots, onAdd, onRe
             file,
             status: 'pending',
         }));
+        // Report busy synchronously: the effect below only runs after render,
+        // and the parent must block date-switch/back from this instant on.
+        onBusyChange?.(true);
         setItems((prev) => [...prev, ...newItems]);
         enqueue(newItems);
     };
