@@ -38,10 +38,32 @@ export default function DayForm({ game, onBack }) {
     // stale closures.
     const stateRef = useRef({ day: null, screenshots: [] });
     stateRef.current = { day, screenshots };
+    // Single-flight guard: three parallel uploads must not each insert a row
+    // for the same (game, date).
+    const ensureInFlightRef = useRef(null);
 
-    // Drop the auto-created row if it never became a record. The DB decides:
-    // deleteDayIfDraft only removes rows still flagged is_draft with no
-    // screenshots, so deliberately saved zero-input days survive (round 3).
+    // The day row is created lazily — only when a screenshot upload or a save
+    // actually needs a day_id. Browsing dates therefore leaves nothing behind.
+    const ensureDay = useCallback(async () => {
+        if (stateRef.current.day) return stateRef.current.day;
+        if (!ensureInFlightRef.current) {
+            ensureInFlightRef.current = createBareDay(game.id, date)
+                .then(({ data, error }) => {
+                    if (error || !data) throw error || new Error('建立日記錄失敗');
+                    stateRef.current = { ...stateRef.current, day: data };
+                    setDay(data);
+                    return data;
+                })
+                .finally(() => {
+                    ensureInFlightRef.current = null;
+                });
+        }
+        return ensureInFlightRef.current;
+    }, [game.id, date]);
+
+    // Safety net for a row created for an upload that then failed: the DB
+    // decides — deleteDayIfDraft only removes rows still flagged is_draft with
+    // no screenshots, so deliberately saved zero-input days survive.
     const cleanupIfEmpty = useCallback(async () => {
         const s = stateRef.current;
         if (s.day && s.screenshots.length === 0) await deleteDayIfDraft(s.day.id);
@@ -64,26 +86,20 @@ export default function DayForm({ game, onBack }) {
         const load = async () => {
             setLoading(true);
             try {
-                const { data: existing, error } = await fetchDay(game.id, date);
+                const { data: row, error } = await fetchDay(game.id, date);
                 if (error) throw error;
-                let row = existing;
-                if (!row) {
-                    // Spec §4.3: the row exists from the moment the form opens,
-                    // so screenshot uploads have their day_id immediately.
-                    const { data: created, error: createError } = await createBareDay(game.id, date);
-                    if (createError) throw createError;
-                    row = created;
-                }
                 if (cancelled) return;
-                setDay(row);
+                // No row yet is the normal case for an unrecorded date; the
+                // form renders empty and creates one only on first real action.
+                setDay(row || null);
                 setFields({
-                    temperature: row.temperature ?? null,
-                    counter_value: row.counter_value ?? null,
-                    progress_note: row.progress_note || '',
-                    activities: row.activities || [],
-                    one_line: row.one_line || '',
+                    temperature: row?.temperature ?? null,
+                    counter_value: row?.counter_value ?? null,
+                    progress_note: row?.progress_note || '',
+                    activities: row?.activities || [],
+                    one_line: row?.one_line || '',
                 });
-                setScreenshots(sortScreenshots(row.portfolio_game_screenshots));
+                setScreenshots(sortScreenshots(row?.portfolio_game_screenshots));
             } catch (error) {
                 console.error('DayForm load error:', error);
                 if (!cancelled) toast.error('載入日記錄失敗');
@@ -117,7 +133,6 @@ export default function DayForm({ game, onBack }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!day) return;
         if (uploadsBusy) {
             toast.error('截圖上傳中，請等它跑完再存');
             return;
@@ -125,9 +140,12 @@ export default function DayForm({ game, onBack }) {
         savingRef.current = true;
         setSaving(true);
         try {
+            // Save is one of the two actions that earn a row (the other is the
+            // first screenshot); zero-input is still a legal record.
+            const row = await ensureDay();
             // is_draft: false makes the save durable — cleanup never touches
             // non-draft rows, so a deliberate zero-input record is kept.
-            const { error } = await updateDay(day.id, {
+            const { error } = await updateDay(row.id, {
                 temperature: fields.temperature,
                 counter_value: fields.counter_value,
                 progress_note: fields.progress_note.trim() || null,
@@ -166,7 +184,7 @@ export default function DayForm({ game, onBack }) {
             ) : (
                 <>
                     <ScreenshotUploader
-                        dayId={day?.id}
+                        ensureDay={ensureDay}
                         screenshots={screenshots}
                         onAdd={(row) => setScreenshots((prev) => sortScreenshots([...prev.filter((s) => s.id !== row.id), row]))}
                         onRemove={(id) => setScreenshots((prev) => prev.filter((s) => s.id !== id))}

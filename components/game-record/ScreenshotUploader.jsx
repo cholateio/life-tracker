@@ -11,9 +11,11 @@ const MAX_CONCURRENT = 3;
 
 // Batch uploader (spec §3.4): pick many, no per-image flow. Files go through a
 // 3-wide queue to /api/screenshots; the server dedups by (day_id, hash) and
-// derives the game itself from day_id. onBusyChange tells the parent whether
-// uploads are still in flight so it can block date-switch/back navigation.
-export default function ScreenshotUploader({ dayId, screenshots, onAdd, onRemove, onBusyChange }) {
+// derives the game itself from day_id. ensureDay() creates the day row on
+// demand (single-flight in the parent) so browsing dates leaves no rows behind.
+// onBusyChange tells the parent whether uploads are still in flight so it can
+// block date-switch/back navigation.
+export default function ScreenshotUploader({ ensureDay, screenshots, onAdd, onRemove, onBusyChange }) {
     const inputRef = useRef(null);
     // Pending/failed uploads only; finished ones live in the parent's list.
     const [items, setItems] = useState([]);
@@ -27,10 +29,11 @@ export default function ScreenshotUploader({ dayId, screenshots, onAdd, onRemove
     const uploadOne = async (item) => {
         setItemStatus(item.key, { status: 'uploading' });
         try {
+            const day = await ensureDay();
             const token = await getAccessToken();
             const formData = new FormData();
             formData.append('file', item.file);
-            formData.append('day_id', dayId);
+            formData.append('day_id', day.id);
             const res = await fetch('/api/screenshots', {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token ?? ''}` },

@@ -19,7 +19,12 @@ export default function TagPicker({ label = 'Tags', value = [], options = [], on
     // after being deselected (options only carries what the DB already knows).
     const [extra, setExtra] = useState([]);
 
-    const allOptions = [...options, ...extra.filter((t) => !has(options, t))];
+    // Selected tags always render, even when they are no longer in `options`
+    // (the game's option list can be edited after a day was recorded) — an
+    // invisible selected tag cannot be deselected and looks like data loss.
+    const allOptions = [...options, ...[...extra, ...value].filter((t) => !has(options, t))].filter(
+        (t, i, list) => list.findIndex((o) => eq(o, t)) === i,
+    );
 
     const toggle = (tag) => {
         onChange(has(value, tag) ? value.filter((t) => !eq(t, tag)) : [...value, tag]);
