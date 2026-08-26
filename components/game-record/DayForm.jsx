@@ -60,15 +60,24 @@ export default function DayForm({ game, onBack }) {
         if (ensureInFlightRef.current?.key === key) return ensureInFlightRef.current.promise;
 
         attemptedKeysRef.current.add(key);
+        const adopt = (row) => {
+            // Adopt into view state only if the form is still on this date.
+            if (keyRef.current === key) {
+                stateRef.current = { ...stateRef.current, day: row };
+                setDay(row);
+            }
+            return row;
+        };
         const promise = createBareDay(game.id, date)
-            .then(({ data, error }) => {
-                if (error || !data) throw error || new Error('建立日記錄失敗');
-                // Adopt into view state only if the form is still on this date.
-                if (keyRef.current === key) {
-                    stateRef.current = { ...stateRef.current, day: data };
-                    setDay(data);
-                }
-                return data;
+            .then(async ({ data, error }) => {
+                if (data) return adopt(data);
+                // The INSERT may have committed with its response lost. Look
+                // the row up and adopt it instead of leaving an orphan draft;
+                // a still-failing lookup rethrows, and the caller's retry runs
+                // this reconciliation again.
+                const { data: found } = await fetchDay(game.id, date);
+                if (found) return adopt(found);
+                throw error || new Error('建立日記錄失敗');
             })
             .finally(() => {
                 if (ensureInFlightRef.current?.key === key) ensureInFlightRef.current = null;
