@@ -13,3 +13,15 @@
 - Error: 頁面本身無登入 gate，寫入直接靠 RLS 擋。`life_sleep` RLS = 匿名可讀、寫入需已登入使用者；本地瀏覽器 session 未登入 → insert 401（select 仍 200，故誤以為缺 token）。
 - Solution: 本地先走 `/login`（或首頁標題五連點）登入，再回頁面寫入即成功。
 - Rule: 本地測「寫入」前先確認已登入；讀得到 ≠ 寫得進，401 先想 RLS/session 再想 key。
+
+### 2026-08-26 pkill -f "next dev" 把自己這條 Bash 指令一起殺了（exit 144）
+- Context: 重啟 life-tracker dev server 前想清掉殘留 next 行程。
+- Error: `pkill -f "next dev"` 的 pattern 會匹配到**執行它的那條指令自己的命令列**，於是 shell 自殺，連鎖導致後續 `&&` 全不執行，只看到 `Exit code 144`，連錯了什麼都看不到。連續三次盲目重試才發現。
+- Solution: 用中括號破壞自我匹配（`pgrep -af "[n]ext-server"`），或先 pgrep 取 PID 再 kill；且 pkill 與啟動指令**不要串在同一條** Bash 呼叫。
+- Rule: `pkill -f <pattern>` 前先確認 pattern 不會匹配到自己的命令列，並把「殺」與「啟動」拆成兩次呼叫。
+
+### 2026-08-26 Suspense 串流下 notFound() 只改 body 不改 status
+- Context: 新增 `/collection/game/[slug]`（cookie gate），無權限時預期回 404。
+- Error: 實測回 **HTTP 200**，body 才是 404 畫面。原因是 `app/collection/loading.jsx` 讓整個子樹進入 Suspense 串流，response header 在 `notFound()` 觸發前就已送出。既有的 `/gallery` 沒有同層 loading.jsx，所以真的回 404——同樣寫法不同結果。
+- Solution: 已驗證 body 為 not-found UI 且不洩漏資料，對「防隨手逛到」的威脅模型可接受；在 `generateMetadata` 也呼叫 `notFound()` 避免標題洩漏，並在檔頭註明此取捨。
+- Rule: 判斷 gate 是否生效要看 **body 有沒有洩漏內容**，不能只看 status code；同層有 loading.jsx 就別預期 notFound() 會改 status。
