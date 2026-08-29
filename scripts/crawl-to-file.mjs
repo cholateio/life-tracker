@@ -72,7 +72,7 @@ async function scrapeBoard(page, boardId) {
                 const rows = document.querySelectorAll('tr.b-list__row');
                 const posts = [];
                 const excludeKeywords = banKeywords;
-                const validTimeKeywords = ['剛剛', '分前', '小時前', '昨天'];
+                const validTimeKeywords = ['剛剛', '分前', '小時前', '昨天', '前天'];
 
                 for (const row of rows) {
                     if (posts.length >= limit) break;
