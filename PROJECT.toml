@@ -3,7 +3,7 @@
 
 name = "life-tracker"
 status = "done"            # active | mvp | done | paused | abandoned
-status_note = "遊戲相簿截圖排序改用上傳序號 seq，已 review 完成待部署;部署後跑 Migration B 將 seq 設為 NOT NULL"
+status_note = "遊戲相簿截圖排序改用上傳序號 seq，已上線並實測正常、Migration B 收尾完成;下一步待累積使用回饋再評估 P2（單張 caption、溫度分布、那年今日）"
 updated = 2026-08-31       # 最後一次人工確認本檔內容的日期
 
 [commands]                 # 只收「用它」的指令;開發指令見 package.json
