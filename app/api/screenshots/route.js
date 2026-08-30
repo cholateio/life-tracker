@@ -4,8 +4,10 @@
 // uploads each shot exactly once.
 //
 // Ordering: seq is the client's upload sequence within a day, stored
-// verbatim; a missing seq (bundle cached before seq existed) appends at
-// max+1. Dedup hits return the existing row and never move it.
+// verbatim. A missing seq (bundle cached before seq existed) is filled by the
+// fill_seq trigger, which allocates max+1 under a per-day advisory lock — do
+// NOT reintroduce a read-then-write max+1 here, it duplicates seq under the
+// legacy client's 3-wide queue. Dedup hits return the existing row unmoved.
 //
 // Destructive-path invariants (codex adversarial review 2026-08-26, 2 rounds):
 // - POST derives game_id from the day row; the client-supplied namespace is
@@ -102,8 +104,12 @@ export async function POST(req) {
         if (!file || typeof file === 'string' || !isIdString(dayId)) {
             return NextResponse.json({ error: 'file and numeric day_id are required' }, { status: 400 });
         }
-        if (seqRaw !== null && (!isIdString(seqRaw) || Number(seqRaw) < 1)) {
-            return NextResponse.json({ error: 'seq must be a positive integer' }, { status: 400 });
+        // Bounds are int4's: a larger value would pass validation, burn the
+        // resize + three GCS writes, then fail at the insert and strand the
+        // objects (codex adversarial review 2026-08-31).
+        const seq = seqRaw === null ? null : Number(seqRaw);
+        if (seqRaw !== null && (!isIdString(seqRaw) || !Number.isSafeInteger(seq) || seq < 1 || seq > 2147483647)) {
+            return NextResponse.json({ error: 'seq must be an integer in [1, 2147483647]' }, { status: 400 });
         }
 
         const db = authedClient(token);
@@ -132,22 +138,6 @@ export async function POST(req) {
             const promoted = await promoteDay(db, dayId);
             if (!promoted) return NextResponse.json({ error: 'day was removed during upload' }, { status: 409 });
             return NextResponse.json({ screenshot: existing, deduped: true }, { status: 200 });
-        }
-
-        // Clients built before seq existed (bundle cached by the service
-        // worker) send none; append to the day rather than fail. Racy under
-        // concurrency, but only that legacy client reaches this path.
-        let seq = seqRaw === null ? null : Number(seqRaw);
-        if (seq === null) {
-            const { data: maxRow, error: maxError } = await db
-                .from('portfolio_game_screenshots')
-                .select('seq')
-                .eq('day_id', dayId)
-                .order('seq', { ascending: false, nullsFirst: false })
-                .limit(1)
-                .maybeSingle();
-            if (maxError) throw maxError;
-            seq = (maxRow?.seq ?? 0) + 1;
         }
 
         // rotate() bakes in EXIF orientation so the derived WebPs render upright.
