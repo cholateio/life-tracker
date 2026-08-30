@@ -103,15 +103,19 @@ create table portfolio_game_screenshots (
   view_url     text not null,                 -- 長邊 1920 WebP q85
   thumb_url    text not null,                 -- 長邊 640 WebP q75
   hash         text not null,                 -- 原檔 SHA-256
-  taken_at     timestamptz,                   -- EXIF，可 null
+  taken_at     timestamptz,                   -- EXIF，可 null（僅保存，不參與排序）
+  seq          integer not null,              -- client 指定的上傳序號（同 day 內遞增；rollout 期間暫為 nullable）
   caption      text,                          -- 永遠選填，事後補（P2）
   created_at   timestamptz not null default now(),
   unique (day_id, hash)                       -- 同日去重；同時充當 day_id 的 FK index
 );
 ```
 
-- **顯示排序**：`taken_at asc nulls last, id asc`。無手動排序。
-  （client 端上傳前把選取檔案按檔名排序後進佇列，無 EXIF 時 id 順序即檔名順序。）
+- **顯示排序**：`seq asc nulls last, id asc`。無手動排序。`taken_at` 僅保存不參與排序——
+  截圖一律由平台 App 匯出到手機，EXIF 時間是匯出時間（秒級精度、大量撞秒），不可靠
+  （2026-08-31 實測 31 張中 14 張撞秒，且無 Make/Model/SubSec）。
+  （client 選檔時依檔名排序後配發 seq = 該 day 目前最大 seq + 1 起遞增；逐張上傳自然遞增；
+  dedup 命中保留既有 seq；client 未帶 seq 時 server 以 max+1 補位。）
 
 ### 2.4 View：`portfolio_games_overview`
 
@@ -130,14 +134,14 @@ left join lateral (
   select min(date) as first_played_at,
          max(date) as last_played_at,
          count(*)  as days_count
-  from portfolio_game_days where game_id = g.id
+  from portfolio_game_days where game_id = g.id and is_draft = false
 ) d on true
 left join lateral (
   select sc.thumb_url as first_thumb
   from portfolio_game_days dd
   join portfolio_game_screenshots sc on sc.day_id = dd.id
   where dd.game_id = g.id
-  order by dd.date asc, sc.taken_at asc nulls last, sc.id asc
+  order by dd.date asc, sc.seq asc nulls last, sc.id asc
   limit 1
 ) s on true;
 ```
@@ -295,7 +299,7 @@ v1 原清單全數沿用：逐張標記流程、心得引導問句、連續紀�
 - ❌ 表單內遊戲切換器（同日多款＝返回清單再進一次）
 - ❌ 標頭「連續第 N 天」
 - ❌ 獨立草稿暫存層（day row 先建 + 截圖即傳即存已覆蓋）
-- ❌ 截圖手動排序（sort_order）與 is_highlight
+- ❌ 截圖手動拖曳排序與 is_highlight（`seq` 只記上傳順序，無 UI 調整）
 - ❌ 每日 hours（只留遊戲總時數手填）
 - ❌ genre 標籤、成就/白金紀錄、自訂書櫃
 - ❌ journal 舊資料遷移

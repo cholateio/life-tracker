@@ -3,6 +3,12 @@
 // to 1920/640 WebP, GCS upload, DB insert — all server-side so the phone
 // uploads each shot exactly once.
 //
+// Ordering: seq is the client's upload sequence within a day, stored
+// verbatim. A missing seq (bundle cached before seq existed) is filled by the
+// fill_seq trigger, which allocates max+1 under a per-day advisory lock — do
+// NOT reintroduce a read-then-write max+1 here, it duplicates seq under the
+// legacy client's 3-wide queue. Dedup hits return the existing row unmoved.
+//
 // Destructive-path invariants (codex adversarial review 2026-08-26, 2 rounds):
 // - POST derives game_id from the day row; the client-supplied namespace is
 //   never trusted, and nothing touches sharp/GCS until the day is confirmed.
@@ -31,6 +37,10 @@ const BUCKET = process.env.GCP_GALLERY_BUCKET_NAME || 'cholate-gallery';
 const BASE_URL = `https://storage.googleapis.com/${BUCKET}/`;
 
 const isIdString = (v) => typeof v === 'string' && /^\d+$/.test(v);
+
+// Upper bound for a client-supplied screenshot seq. Absurdly generous for a
+// single day, yet small enough that seq and seq+1 stay well inside int4.
+const SEQ_MAX = 1000000;
 
 // Auth gate identical to /api/upload: session lives in client localStorage, so
 // the token travels as a Bearer header; getUser(token) never touches the shared
@@ -94,8 +104,18 @@ export async function POST(req) {
         const formData = await req.formData();
         const file = formData.get('file');
         const dayId = formData.get('day_id');
+        const seqRaw = formData.get('seq');
         if (!file || typeof file === 'string' || !isIdString(dayId)) {
             return NextResponse.json({ error: 'file and numeric day_id are required' }, { status: 400 });
+        }
+        // Checked before any resize/GCS write: an out-of-range seq would
+        // otherwise burn three uploads and then fail at the insert, stranding
+        // the objects. The cap sits far below int4 max so the trigger's
+        // max(seq)+1 can never overflow either (codex adversarial review
+        // 2026-08-31); a day holds tens of shots, never a million.
+        const seq = seqRaw === null ? null : Number(seqRaw);
+        if (seqRaw !== null && (!isIdString(seqRaw) || !Number.isSafeInteger(seq) || seq < 1 || seq > SEQ_MAX)) {
+            return NextResponse.json({ error: `seq must be an integer in [1, ${SEQ_MAX}]` }, { status: 400 });
         }
 
         const db = authedClient(token);
@@ -159,6 +179,7 @@ export async function POST(req) {
                 thumb_url: thumbUrl,
                 hash,
                 taken_at: takenAt,
+                seq,
             })
             .select()
             .single();

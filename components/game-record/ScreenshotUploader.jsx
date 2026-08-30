@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ImagePlus, Loader2, RotateCw, X } from 'lucide-react';
 import { Label } from '@/components/ui/FormBase';
-import { getAccessToken } from '@/lib/games';
+import { getAccessToken, nextSeq } from '@/lib/games';
 
 const MAX_CONCURRENT = 3;
 
@@ -34,6 +34,7 @@ export default function ScreenshotUploader({ ensureDay, screenshots, onAdd, onRe
             const formData = new FormData();
             formData.append('file', item.file);
             formData.append('day_id', day.id);
+            formData.append('seq', String(item.seq));
             const res = await fetch('/api/screenshots', {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token ?? ''}` },
@@ -69,11 +70,16 @@ export default function ScreenshotUploader({ ensureDay, screenshots, onAdd, onRe
         const files = Array.from(e.target.files || []);
         e.target.value = '';
         if (files.length === 0) return;
-        // Filename order approximates capture order for shots without EXIF.
+        // Filename order approximates the user's intended order within one pick.
         files.sort((a, b) => a.name.localeCompare(b.name));
+        // Base spans committed rows AND still-listed items (pending, uploading,
+        // error) so a second pick mid-batch continues the sequence instead of
+        // reusing numbers an in-flight upload already claimed.
+        const base = nextSeq([...screenshots, ...items]);
         const newItems = files.map((file, i) => ({
             key: `${Date.now()}-${i}-${file.name}`,
             file,
+            seq: base + i,
             status: 'pending',
         }));
         // Report busy synchronously: the effect below only runs after render,

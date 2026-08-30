@@ -25,3 +25,9 @@
 - Error: 實測回 **HTTP 200**，body 才是 404 畫面。原因是 `app/collection/loading.jsx` 讓整個子樹進入 Suspense 串流，response header 在 `notFound()` 觸發前就已送出。既有的 `/gallery` 沒有同層 loading.jsx，所以真的回 404——同樣寫法不同結果。
 - Solution: 已驗證 body 為 not-found UI 且不洩漏資料，對「防隨手逛到」的威脅模型可接受；在 `generateMetadata` 也呼叫 `notFound()` 避免標題洩漏，並在檔頭註明此取捨。
 - Rule: 判斷 gate 是否生效要看 **body 有沒有洩漏內容**，不能只看 status code；同層有 loading.jsx 就別預期 notFound() 會改 status。
+
+### 2026-08-31 App 匯出截圖的 EXIF 時間不可當排序鍵
+- Context: game-record 截圖依 EXIF `DateTimeOriginal` 排序，使用者截圖全由遊戲平台 App 匯出到手機。
+- Error: 順序錯亂（通關圖排在打 Boss 圖之前）。實測 31 張原圖：14 張撞秒（EXIF 只有秒級），且無 Make/Model/Software/SubSec——那是**匯出時間**不是截圖時間。撞秒後平手落到 `id`，而 uploader 是 3 路並發，`id` 順序等同隨機；刪除重傳又拿到更大的 id。
+- Solution: 加 client 配發的 `seq` 欄位（expand → deploy → contract 三段上線），排序改 `seq asc nulls last, id asc`；舊 bundle 未帶 seq 時由 `fill_seq` trigger 在 `pg_advisory_xact_lock(day_id)` 下補 max+1（route 端 read-then-write 會在並發下發出重複號，codex 抓到）；portfolio repo 的 JS 排序同步。
+- Rule: 使用者提供的媒體，排序鍵用「使用者動作順序」而非檔案內嵌時間；schema 加欄位前先問「舊 client 還能寫嗎」再決定 NOT NULL 的時機，且「讀 max 再寫 max+1」在並發下一律要靠 DB 端鎖或序列。
