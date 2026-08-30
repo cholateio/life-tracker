@@ -38,6 +38,10 @@ const BASE_URL = `https://storage.googleapis.com/${BUCKET}/`;
 
 const isIdString = (v) => typeof v === 'string' && /^\d+$/.test(v);
 
+// Upper bound for a client-supplied screenshot seq. Absurdly generous for a
+// single day, yet small enough that seq and seq+1 stay well inside int4.
+const SEQ_MAX = 1000000;
+
 // Auth gate identical to /api/upload: session lives in client localStorage, so
 // the token travels as a Bearer header; getUser(token) never touches the shared
 // module-level client's state.
@@ -104,12 +108,14 @@ export async function POST(req) {
         if (!file || typeof file === 'string' || !isIdString(dayId)) {
             return NextResponse.json({ error: 'file and numeric day_id are required' }, { status: 400 });
         }
-        // Bounds are int4's: a larger value would pass validation, burn the
-        // resize + three GCS writes, then fail at the insert and strand the
-        // objects (codex adversarial review 2026-08-31).
+        // Checked before any resize/GCS write: an out-of-range seq would
+        // otherwise burn three uploads and then fail at the insert, stranding
+        // the objects. The cap sits far below int4 max so the trigger's
+        // max(seq)+1 can never overflow either (codex adversarial review
+        // 2026-08-31); a day holds tens of shots, never a million.
         const seq = seqRaw === null ? null : Number(seqRaw);
-        if (seqRaw !== null && (!isIdString(seqRaw) || !Number.isSafeInteger(seq) || seq < 1 || seq > 2147483647)) {
-            return NextResponse.json({ error: 'seq must be an integer in [1, 2147483647]' }, { status: 400 });
+        if (seqRaw !== null && (!isIdString(seqRaw) || !Number.isSafeInteger(seq) || seq < 1 || seq > SEQ_MAX)) {
+            return NextResponse.json({ error: `seq must be an integer in [1, ${SEQ_MAX}]` }, { status: 400 });
         }
 
         const db = authedClient(token);
