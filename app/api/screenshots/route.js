@@ -9,6 +9,9 @@
 // NOT reintroduce a read-then-write max+1 here, it duplicates seq under the
 // legacy client's 3-wide queue. Dedup hits return the existing row unmoved.
 //
+// Identity: (day_id, hash) is the primary key — there is no surrogate id. The
+// same image recorded under two days is two rows, by design.
+//
 // Destructive-path invariants (codex adversarial review 2026-08-26, 2 rounds):
 // - POST derives game_id from the day row; the client-supplied namespace is
 //   never trusted, and nothing touches sharp/GCS until the day is confirmed.
@@ -41,6 +44,10 @@ const isIdString = (v) => typeof v === 'string' && /^\d+$/.test(v);
 // Upper bound for a client-supplied screenshot seq. Absurdly generous for a
 // single day, yet small enough that seq and seq+1 stay well inside int4.
 const SEQ_MAX = 1000000;
+
+// Server writes hashes as sha256 hex, so anything else cannot match a row —
+// reject before touching the DB.
+const isHashString = (v) => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v);
 
 // Auth gate identical to /api/upload: session lives in client localStorage, so
 // the token travels as a Bearer header; getUser(token) never touches the shared
@@ -244,9 +251,17 @@ export async function DELETE(req) {
         if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const { searchParams } = new URL(req.url);
-        const id = searchParams.get('id');
+        const dayId = searchParams.get('day_id');
+        const hash = searchParams.get('hash');
         const gameId = searchParams.get('game_id');
         const db = authedClient(token);
+
+        // A bundle cached before the natural-key switch addresses rows by the
+        // dropped surrogate id. Answer without querying that column, so this
+        // branch behaves identically before and after the migration.
+        if (searchParams.has('id')) {
+            return NextResponse.json({ error: 'client outdated; reload the app' }, { status: 409 });
+        }
 
         // game_id mode purges the whole GCS prefix, but only for a game that is
         // confirmed gone from the DB — a stale/forged call on a live game is
@@ -266,11 +281,19 @@ export async function DELETE(req) {
             return NextResponse.json({ deleted: true }, { status: 200 });
         }
 
-        if (!isIdString(id)) return NextResponse.json({ error: 'numeric id or game_id is required' }, { status: 400 });
+        if (!isIdString(dayId) || !isHashString(hash)) {
+            return NextResponse.json({ error: 'day_id + hash, or game_id, is required' }, { status: 400 });
+        }
 
         // Row only — GCS objects stay until the game-prefix purge (see header
         // invariants for why immediate object deletion is a TOCTOU race).
-        const { error: deleteError } = await db.from('portfolio_game_screenshots').delete().eq('id', id);
+        // (day_id, hash) is the primary key, so this matches at most one row;
+        // the same image under another day is a different row and is untouched.
+        const { error: deleteError } = await db
+            .from('portfolio_game_screenshots')
+            .delete()
+            .eq('day_id', dayId)
+            .eq('hash', hash);
         if (deleteError) throw deleteError;
 
         return NextResponse.json({ deleted: true }, { status: 200 });
