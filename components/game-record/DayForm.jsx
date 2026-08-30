@@ -224,7 +224,17 @@ export default function DayForm({ game, onBack }) {
                     <ScreenshotUploader
                         ensureDay={ensureDay}
                         screenshots={screenshots}
-                        onAdd={(row) => setScreenshots((prev) => sortScreenshots([...prev.filter((s) => s.hash !== row.hash), row]))}
+                        onAdd={(row) => setScreenshots((prev) => (
+                            // Same guard as ensureDay's adopt(): a POST that
+                            // resolves after a date switch must not seed this
+                            // day with the previous day's row (codex review
+                            // 2026-08-31 — navBlocked() is checked before an
+                            // await, so it cannot cover an upload started
+                            // during that window).
+                            row.day_id !== stateRef.current.day?.id
+                                ? prev
+                                : sortScreenshots([...prev.filter((s) => s.hash !== row.hash), row])
+                        ))}
                         onRemove={(dayId, hash) => setScreenshots((prev) => prev.filter((s) => !(s.day_id === dayId && s.hash === hash)))}
                         onBusyChange={setUploadsBusy}
                     />
