@@ -96,15 +96,15 @@ export default function ScreenshotUploader({ ensureDay, screenshots, onAdd, onRe
 
     const handleDelete = async (shot) => {
         if (!window.confirm('刪除這張截圖？')) return;
-        setDeletingId(shot.id);
+        setDeletingId(shot.hash);
         try {
             const token = await getAccessToken();
-            const res = await fetch(`/api/screenshots?id=${shot.id}`, {
+            const res = await fetch(`/api/screenshots?day_id=${shot.day_id}&hash=${shot.hash}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token ?? ''}` },
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            onRemove(shot.id);
+            onRemove(shot.hash);
         } catch (error) {
             console.error('Screenshot delete failed:', error);
             toast.error('刪除失敗');
@@ -134,17 +134,17 @@ export default function ScreenshotUploader({ ensureDay, screenshots, onAdd, onRe
 
             <div className="grid grid-cols-3 gap-2 mt-2">
                 {screenshots.map((shot) => (
-                    <div key={shot.id} className="relative aspect-video rounded-lg overflow-hidden bg-[#3f4a4e]/10">
+                    <div key={shot.hash} className="relative aspect-video rounded-lg overflow-hidden bg-[#3f4a4e]/10">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={shot.thumb_url} alt={shot.caption || ''} loading="lazy" className="w-full h-full object-cover" />
                         <button
                             type="button"
                             aria-label="刪除截圖"
-                            disabled={deletingId === shot.id}
+                            disabled={deletingId === shot.hash}
                             onClick={() => handleDelete(shot)}
                             className="absolute top-1 right-1 p-1 rounded-full bg-black/50 text-white active:scale-90"
                         >
-                            {deletingId === shot.id ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                            {deletingId === shot.hash ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
                         </button>
                     </div>
                 ))}

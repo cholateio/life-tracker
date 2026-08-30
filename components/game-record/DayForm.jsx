@@ -224,8 +224,8 @@ export default function DayForm({ game, onBack }) {
                     <ScreenshotUploader
                         ensureDay={ensureDay}
                         screenshots={screenshots}
-                        onAdd={(row) => setScreenshots((prev) => sortScreenshots([...prev.filter((s) => s.id !== row.id), row]))}
-                        onRemove={(id) => setScreenshots((prev) => prev.filter((s) => s.id !== id))}
+                        onAdd={(row) => setScreenshots((prev) => sortScreenshots([...prev.filter((s) => s.hash !== row.hash), row]))}
+                        onRemove={(hash) => setScreenshots((prev) => prev.filter((s) => s.hash !== hash))}
                         onBusyChange={setUploadsBusy}
                     />
 
