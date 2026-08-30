@@ -31,3 +31,9 @@
 - Error: 順序錯亂（通關圖排在打 Boss 圖之前）。實測 31 張原圖：14 張撞秒（EXIF 只有秒級），且無 Make/Model/Software/SubSec——那是**匯出時間**不是截圖時間。撞秒後平手落到 `id`，而 uploader 是 3 路並發，`id` 順序等同隨機；刪除重傳又拿到更大的 id。
 - Solution: 加 client 配發的 `seq` 欄位（expand → deploy → contract 三段上線），排序改 `seq asc nulls last, id asc`；舊 bundle 未帶 seq 時由 `fill_seq` trigger 在 `pg_advisory_xact_lock(day_id)` 下補 max+1（route 端 read-then-write 會在並發下發出重複號，codex 抓到）；portfolio repo 的 JS 排序同步。
 - Rule: 使用者提供的媒體，排序鍵用「使用者動作順序」而非檔案內嵌時間；schema 加欄位前先問「舊 client 還能寫嗎」再決定 NOT NULL 的時機，且「讀 max 再寫 max+1」在並發下一律要靠 DB 端鎖或序列。
+
+### 2026-08-31 消費者稽核只掃 property access，漏掉 select 字串與跨 repo 檔案
+- Context: 移除 `portfolio_game_screenshots.id` 前，要找出所有依賴該欄位的地方。
+- Error: 我用 `grep "shot\.id"` 與「含表名的檔案」兩個條件掃，回報「只有 6 處」。codex 實查抓出兩個漏網：`lib/games.js:104` 的 `.select('id', { count: 'exact', head: true })`（drop 後 PostgREST 拒絕該查詢，而該函式把 countError 當成「不要刪」→ draft day 永久殘留），以及 `~/portfolio/components/collection/ScreenshotGrid.jsx:16` 的 `key={shot.id}`（該檔不含表名，所以沒被掃到）。
+- Solution: 兩處併入變更；稽核改成掃「屬性用法本身」+「ORM/REST 的 select 字串」，且跨 repo 掃全 repo 不預先過濾檔案。
+- Rule: 刪欄位前的消費者稽核要同時掃 property access 與查詢字串（`select('col')`、`order('col')`），跨 repo 時不要用「檔案含表名」當過濾條件——ORM 把欄位名藏在字串裡，grep 屬性名掃不到。

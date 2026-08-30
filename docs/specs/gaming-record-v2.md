@@ -97,25 +97,27 @@ create table portfolio_game_days (
 
 ```sql
 create table portfolio_game_screenshots (
-  id           bigint generated always as identity primary key,
   day_id       bigint not null references portfolio_game_days(id) on delete cascade,
   original_url text not null,                 -- 原圖（JPG，永久保留）
   view_url     text not null,                 -- 長邊 1920 WebP q85
   thumb_url    text not null,                 -- 長邊 640 WebP q75
   hash         text not null,                 -- 原檔 SHA-256
   taken_at     timestamptz,                   -- EXIF，可 null（僅保存，不參與排序）
-  seq          integer not null,              -- client 指定的上傳序號（同 day 內遞增；rollout 期間暫為 nullable）
+  seq          integer not null,              -- client 指定的上傳序號（同 day 內遞增）
   caption      text,                          -- 永遠選填，事後補（P2）
   created_at   timestamptz not null default now(),
-  unique (day_id, hash)                       -- 同日去重；同時充當 day_id 的 FK index
+  primary key (day_id, hash)                  -- 自然鍵：同日去重，同時充當 day_id 的 FK index
+                                              -- 無代理 id（2026-08-31 移除：無 FK 指向它，
+                                              -- 刪除造成的跳號只會誤導閱讀）
 );
 ```
 
-- **顯示排序**：`seq asc nulls last, id asc`。無手動排序。`taken_at` 僅保存不參與排序——
+- **顯示排序**：`seq asc, hash asc`。無手動排序。單張截圖以 `(day_id, hash)` 定位——
+  DELETE 走 `?day_id=&hash=`，client 的 React key／刪除狀態亦同。`taken_at` 僅保存不參與排序——
   截圖一律由平台 App 匯出到手機，EXIF 時間是匯出時間（秒級精度、大量撞秒），不可靠
   （2026-08-31 實測 31 張中 14 張撞秒，且無 Make/Model/SubSec）。
   （client 選檔時依檔名排序後配發 seq = 該 day 目前最大 seq + 1 起遞增；逐張上傳自然遞增；
-  dedup 命中保留既有 seq；client 未帶 seq 時 server 以 max+1 補位。）
+  dedup 命中保留既有 seq；client 未帶 seq 時由 `fill_seq` trigger 在 per-day advisory lock 下補 max+1。）
 
 ### 2.4 View：`portfolio_games_overview`
 
@@ -141,7 +143,7 @@ left join lateral (
   from portfolio_game_days dd
   join portfolio_game_screenshots sc on sc.day_id = dd.id
   where dd.game_id = g.id
-  order by dd.date asc, sc.seq asc nulls last, sc.id asc
+  order by dd.date asc, sc.seq asc, sc.hash asc
   limit 1
 ) s on true;
 ```
