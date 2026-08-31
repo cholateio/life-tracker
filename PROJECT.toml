@@ -3,7 +3,7 @@
 
 name = "life-tracker"
 status = "done"            # active | mvp | done | paused | abandoned
-status_note = "截圖改以自然鍵 (day_id, hash) 識別、移除冗餘 id，已上線;待真機驗一次刪除功能後即完成"
+status_note = "截圖改以 (day_id, hash) 自然鍵識別、移除冗餘 id 與未用的 caption 欄位，已上線;待累積使用回饋再評估 P2"
 updated = 2026-08-31       # 最後一次人工確認本檔內容的日期
 
 [commands]                 # 只收「用它」的指令;開發指令見 package.json
