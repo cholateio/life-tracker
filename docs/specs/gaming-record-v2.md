@@ -123,11 +123,14 @@ create table portfolio_game_screenshots (
 書架查詢的唯一入口，衍生欄位不落地：
 
 ```sql
--- security_invoker: without it the view runs as its owner and bypasses RLS
--- on the three tables it reads (Supabase flags that as UNRESTRICTED). anon /
--- authenticated therefore need SELECT on portfolio_games,
--- portfolio_game_days, portfolio_game_screenshots — which the §2.5 policies
--- already grant via `using (true)`.
+-- security_invoker: without it the view runs as its owner and bypasses RLS on
+-- the three tables it reads (Supabase flags that as UNRESTRICTED).
+-- Prerequisite when rebuilding from this spec: anon / authenticated need the
+-- table-level SELECT *privilege* on portfolio_games, portfolio_game_days and
+-- portfolio_game_screenshots. Supabase's default ACLs grant that to both roles
+-- for public-schema tables; the §2.5 RLS policies then filter rows and do NOT
+-- themselves grant anything. Verify with information_schema.role_table_grants
+-- if the view returns nothing after a rebuild.
 create view portfolio_games_overview with (security_invoker = true) as
 select
   g.*,
@@ -190,7 +193,7 @@ life-tracker PWA 從手機相簿多選上傳。
 新依賴：`sharp`（Next.js 官方影像最佳化同款，Vercel 原生支援）。
 單張處理約 1–2 秒，50 張約一分多鐘，背景佇列進行、不阻塞表單填寫。
 
-### 3.2 `DELETE /api/screenshots?id=`
+### 3.2 `DELETE /api/screenshots?day_id=&hash=`
 
 **只刪 DB row，不碰 GCS**（2026-08-26 codex adversarial review 定案）：hash 命名
 的物件會被同 `(game, hash)` 的其他 row 共用，任何「先查引用再刪物件」都是
