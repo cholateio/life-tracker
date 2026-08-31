@@ -104,7 +104,6 @@ create table portfolio_game_screenshots (
   hash         text not null,                 -- 原檔 SHA-256
   taken_at     timestamptz,                   -- EXIF，可 null（僅保存，不參與排序）
   seq          integer not null,              -- client 指定的上傳序號（同 day 內遞增）
-  caption      text,                          -- 永遠選填，事後補（P2）
   created_at   timestamptz not null default now(),
   primary key (day_id, hash)                  -- 自然鍵：同日去重，同時充當 day_id 的 FK index
                                               -- 無代理 id（2026-08-31 移除：無 FK 指向它，
@@ -276,7 +275,7 @@ cover_resolved, last_played_at`，按 `last_played_at desc`。Marquee + WaveList
 ```
 
 - 截圖網格：一律等比不裁切；手機 2 欄／桌機 3–4 欄；thumb 640 lazy load +
-  佔位避免版面跳動；點開看 view 1920；caption 點按/hover 浮現，**圖上不疊字**；
+  佔位避免版面跳動；點開看 view 1920；**圖上不疊字**；
   原圖連結開新分頁即下載。
 - 純文字日（無截圖）正常顯示，不做任何「資料不完整」暗示。
 
@@ -286,7 +285,7 @@ cover_resolved, last_played_at`，按 `last_played_at desc`。Marquee + WaveList
 |------|------|--------|
 | P0 | Supabase 三表 + view + RLS；life-tracker 遊戲清單 + 新增遊戲 + 補記表單 + `/api/screenshots` | **可開始日常記錄** |
 | P1 | portfolio 書架查詢改版 + `/collection/game/[slug]` | **可回看相簿** |
-| P2 | 「已隔 N 天」前情提要 banner（portfolio 遊戲頁頂部，距最後紀錄 > 7 天才顯示，純衍生）；caption 補填 UI（life-tracker 補記表單點縮圖）；溫度分布比例條 | 用一陣子再做 |
+| P2 | 「已隔 N 天」前情提要 banner（portfolio 遊戲頁頂部，距最後紀錄 > 7 天才顯示，純衍生）；caption（欄位與顯示碼已於 2026-09-01 移除：從未寫入過；要做就欄位＋補填 UI＋顯示一起回來）；溫度分布比例條 | 用一陣子再做 |
 
 那年今日、年度回顧、搜尋、動畫沿用：不排期。
 

@@ -141,7 +141,7 @@ export default function ScreenshotUploader({ ensureDay, screenshots, onAdd, onRe
                 {screenshots.map((shot) => (
                     <div key={shotKey(shot)} className="relative aspect-video rounded-lg overflow-hidden bg-[#3f4a4e]/10">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={shot.thumb_url} alt={shot.caption || ''} loading="lazy" className="w-full h-full object-cover" />
+                        <img src={shot.thumb_url} alt="" loading="lazy" className="w-full h-full object-cover" />
                         <button
                             type="button"
                             aria-label="刪除截圖"
