@@ -123,7 +123,12 @@ create table portfolio_game_screenshots (
 書架查詢的唯一入口，衍生欄位不落地：
 
 ```sql
-create view portfolio_games_overview as
+-- security_invoker: without it the view runs as its owner and bypasses RLS
+-- on the three tables it reads (Supabase flags that as UNRESTRICTED). anon /
+-- authenticated therefore need SELECT on portfolio_games,
+-- portfolio_game_days, portfolio_game_screenshots — which the §2.5 policies
+-- already grant via `using (true)`.
+create view portfolio_games_overview with (security_invoker = true) as
 select
   g.*,
   d.first_played_at,
