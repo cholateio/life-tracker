@@ -36,7 +36,11 @@ const storage = new Storage({
     },
 });
 
-const BUCKET = process.env.GCP_GALLERY_BUCKET_NAME || 'cholate-gallery';
+// No fallback bucket name: a fork that forgets the env var would otherwise
+// write into the upstream author's bucket. Enforced per request (handlers
+// return 500 when unset) rather than by throwing here, so a missing env var
+// cannot break the build.
+const BUCKET = process.env.GCP_GALLERY_BUCKET_NAME;
 const BASE_URL = `https://storage.googleapis.com/${BUCKET}/`;
 
 const isIdString = (v) => typeof v === 'string' && /^\d+$/.test(v);
@@ -105,6 +109,7 @@ async function saveToGcs(path, buffer, contentType) {
 
 export async function POST(req) {
     try {
+        if (!BUCKET) return NextResponse.json({ error: 'Server misconfigured: GCP_GALLERY_BUCKET_NAME is not set' }, { status: 500 });
         const token = await authenticate(req);
         if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -247,6 +252,7 @@ export async function POST(req) {
 
 export async function DELETE(req) {
     try {
+        if (!BUCKET) return NextResponse.json({ error: 'Server misconfigured: GCP_GALLERY_BUCKET_NAME is not set' }, { status: 500 });
         const token = await authenticate(req);
         if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

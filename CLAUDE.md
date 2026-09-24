@@ -66,7 +66,8 @@ life-tracker/
 │                                    DatePicker / DropdownSelect / ToggleSwitch /
 │                                    SubmitButton / ImageUpload / ImageUploadGallery / TagPicker
 │
-├── configs/menu.js               ← 首頁 8 個 app 的設定（名稱/路徑/icon/顏色）
+├── configs/menu.js               ← 首頁 9 個 app 的設定（key/名稱/路徑/icon/顏色）
+│                                 NEXT_PUBLIC_APPS 可過濾顯示哪些
 ├── hooks/useAuth.js              ← Supabase session 訂閱 hook
 ├── lib/
 │   ├── supabase.js               ← Supabase client（publishable key）

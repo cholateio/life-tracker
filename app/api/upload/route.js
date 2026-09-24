@@ -40,11 +40,12 @@ export async function POST(req) {
         }
 
         // 🌟 新增：動態決定 Bucket 名稱
-        let actualBucketName;
-        if (bucketType === 'gallery') {
-            actualBucketName = process.env.GCP_GALLERY_BUCKET_NAME || 'cholate-gallery';
-        } else {
-            actualBucketName = process.env.GCP_BUCKET_NAME || 'cholate-thumbnail';
+        // No fallback bucket name on purpose: a fork that forgets the env var
+        // would otherwise upload into the upstream author's bucket and hand out
+        // URLs on their domain. Fail loudly instead.
+        const actualBucketName = bucketType === 'gallery' ? process.env.GCP_GALLERY_BUCKET_NAME : process.env.GCP_BUCKET_NAME;
+        if (!actualBucketName) {
+            return NextResponse.json({ error: 'Server misconfigured: GCP bucket name env var is not set' }, { status: 500 });
         }
 
         // 在請求內部動態實例化 bucket

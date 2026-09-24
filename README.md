@@ -34,6 +34,18 @@ Of course, with AI (Gemini), but I am for sure I understand every code inside th
 
 - Deployment: Vercel
 
+## Setup (for forks)
+
+This is my personal tracker, so only **Game Record** is packaged for other people — it is the one feature whose schema ships in `supabase/migrations/`. The other eight pages query tables that live only in my own Supabase project and will error out on a fresh one; `NEXT_PUBLIC_APPS` (below) hides them.
+
+1. `pnpm install` (this repo is pnpm-only — `npm install` breaks on the lockfile)
+2. `cp .env.example .env.local` and fill it in. `NEXT_PUBLIC_APPS=game-record` is already set so the home grid shows only what you can run.
+3. **Supabase** — create a project, then in the SQL editor run the files in `supabase/migrations/` in filename order.
+4. **Supabase auth** — the app has no sign-up screen by design. Create your account under Authentication → Users → Add user, then go to Authentication → Sign In / Providers and turn **off** "Allow new users to sign up". Leaving it on lets a stranger register and inherit full write access to your records, because the RLS write policies grant the whole `authenticated` role rather than a per-row owner.
+5. **Supabase read access** — the shipped policies deliberately allow anonymous `SELECT` on the three game tables (I render my records on an external site). If you want your log private, add `to authenticated` to the three `*_read` policies in `supabase/migrations/20260826_gaming_record_v2.sql`.
+6. **Google Cloud Storage** — follow `documents/setup_gcp.md` to create the two buckets and a service account. Note that it makes uploaded images world-readable by URL; the SHA-256 filenames are unguessable, not private.
+7. `pnpm dev`
+
 ## Record Display (on other website)
 
 ![Record Display Page (on other web)](./public/intro3.jpg)

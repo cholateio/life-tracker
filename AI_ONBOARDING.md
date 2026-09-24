@@ -7,7 +7,7 @@
 
 - Next.js 16 App Router monolith — one feature = one `app/<feature>/page.jsx`. No nested routes, no service layer, no `src/`.
 - Frontend is the heavy side: image compression / rotation / SHA-256 hashing all happen client-side via Canvas before any upload.
-- Backend is intentionally thin — `app/api/upload/route.js` is the only API route, and it just writes the already-hashed buffer to GCS.
+- Backend is intentionally thin — two API routes only: `app/api/upload/route.js` writes an already-hashed buffer to GCS, and `app/api/screenshots/route.js` runs the game-record screenshot pipeline (sharp resize + GCS + DB insert) server-side.
 - Supabase (PostgreSQL + Auth) holds structured data; pages call it directly via `lib/supabase.js` from the client.
 - Daily crawler runs offline (GH Actions → `scripts/crawl-to-file.mjs` → commit `public/daily-news.json`) and `app/crawler/page.jsx` reads that static file. No live scraping in the app.
 
@@ -54,7 +54,7 @@ This is the project's accepted form of "evidence before completion". Do NOT prop
 
 ## Schema changes (Supabase)
 
-There is no migrations folder in the repo — schema lives in Supabase Studio and the user owns it. Workflow when a feature needs new columns / tables:
+`supabase/migrations/` holds the SQL for **game-record only** (`portfolio_games`, `portfolio_game_days`, `portfolio_game_screenshots`, `portfolio_games_overview`); every other table lives solely in Supabase Studio and the user owns it. Either way the AI does not execute DDL — the user runs the SQL. Workflow when a feature needs new columns / tables:
 
 1. Ask the user for the existing table shape (or wait for them to paste it).
 2. Write a self-contained SQL snippet (`ALTER TABLE ...` for the common case of adding columns; `CREATE TABLE ...` if a new entity).

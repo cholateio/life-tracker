@@ -1,7 +1,8 @@
 import { Moon, Landmark, Flag, Bot, Gamepad2, Tv, ListTodo, Dices, FolderGit2 } from 'lucide-react';
 
-export const MENU_CONFIG = [
+const ALL_APPS = [
     {
+        key: 'sleep-tracker',
         name: '睡眠紀錄',
         desc: 'Sleep Tracker',
         href: '/sleep-tracker',
@@ -9,6 +10,7 @@ export const MENU_CONFIG = [
         color: '#3f4a4e',
     },
     {
+        key: 'milestone',
         name: '人生里程碑',
         desc: 'Milestone',
         href: '/milestone',
@@ -16,6 +18,7 @@ export const MENU_CONFIG = [
         color: '#c2785c',
     },
     {
+        key: 'crawler',
         name: '巴哈日報',
         desc: 'Gamer Crawler',
         href: '/crawler',
@@ -23,6 +26,7 @@ export const MENU_CONFIG = [
         color: '#166534',
     },
     {
+        key: 'anime-record',
         name: '動漫紀錄',
         desc: 'Anime Record',
         href: '/anime-record',
@@ -30,6 +34,7 @@ export const MENU_CONFIG = [
         color: '#6366f1',
     },
     {
+        key: 'game-record',
         name: '電玩紀錄',
         desc: 'Game Record',
         href: '/game-record',
@@ -37,6 +42,7 @@ export const MENU_CONFIG = [
         color: '#1caad9',
     },
     {
+        key: 'gallery',
         name: '我的圖庫',
         desc: 'Gallery',
         href: '/gallery',
@@ -44,6 +50,7 @@ export const MENU_CONFIG = [
         color: '#8c6b5d',
     },
     {
+        key: 'todo',
         name: '待辦清單',
         desc: 'Todo List',
         href: '/todo',
@@ -51,6 +58,7 @@ export const MENU_CONFIG = [
         color: '#FF4D4D',
     },
     {
+        key: 'nocturne',
         name: '夜籤',
         desc: 'Nocturne',
         href: '/nocturne',
@@ -58,6 +66,7 @@ export const MENU_CONFIG = [
         color: '#4a3f6b',
     },
     {
+        key: 'project-record',
         name: '專案紀錄',
         desc: 'Project Record',
         href: '/project-record',
@@ -65,3 +74,14 @@ export const MENU_CONFIG = [
         color: '#0f766e',
     },
 ];
+
+// Only game-record's schema ships in supabase/migrations/; the other eight
+// pages query tables that exist solely in the maintainer's Supabase project.
+// NEXT_PUBLIC_APPS (comma-separated keys) trims the home grid so a fork shows
+// only what it can actually run. Unset = every app, i.e. the maintainer's own
+// deployment is unaffected. Inlined at build time, so changing it needs a rebuild.
+const enabledKeys = process.env.NEXT_PUBLIC_APPS?.split(',')
+    .map((key) => key.trim())
+    .filter(Boolean);
+
+export const MENU_CONFIG = enabledKeys?.length ? ALL_APPS.filter((app) => enabledKeys.includes(app.key)) : ALL_APPS;
