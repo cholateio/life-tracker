@@ -37,3 +37,9 @@
 - Error: 我用 `grep "shot\.id"` 與「含表名的檔案」兩個條件掃，回報「只有 6 處」。codex 實查抓出兩個漏網：`lib/games.js:104` 的 `.select('id', { count: 'exact', head: true })`（drop 後 PostgREST 拒絕該查詢，而該函式把 countError 當成「不要刪」→ draft day 永久殘留），以及 `~/portfolio/components/collection/ScreenshotGrid.jsx:16` 的 `key={shot.id}`（該檔不含表名，所以沒被掃到）。
 - Solution: 兩處併入變更；稽核改成掃「屬性用法本身」+「ORM/REST 的 select 字串」，且跨 repo 掃全 repo 不預先過濾檔案。
 - Rule: 刪欄位前的消費者稽核要同時掃 property access 與查詢字串（`select('col')`、`order('col')`），跨 repo 時不要用「檔案含表名」當過濾條件——ORM 把欄位名藏在字串裡，grep 屬性名掃不到。
+
+### 2026-09-30 life_sleep 匿名讀取回空陣列（無 error），RLS 已非「匿名可讀」
+- Context: 睡眠頁加「最近 7 天」讀取，用 publishable key（未登入）跑同一條 select 驗證。
+- Error: 回 `data: []`、`error: null`；實際表內 273 筆。`pg_policies` 只剩一條 `ALL` for `authenticated` 且 `auth.uid() = <owner uuid>`——07-23 條目寫的「匿名可讀」已過時。
+- Solution: 以 Supabase MCP `execute_sql` 驗證查詢/分組；頁面上未登入時 7 天列全虛線屬預期。
+- Rule: RLS 下「空陣列無 error」先查 `pg_policies`，別當成沒資料；引用舊 LESSONS 的 policy 描述前先實查。
