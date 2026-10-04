@@ -12,7 +12,7 @@ import { Toaster } from 'sonner';
 export default function RecordPageLayout({ title = 'Record', children }) {
     return (
         // 外層容器：滿版高度、主背景色、彈性佈局
-        <div className="min-h-screen p-6 flex flex-col" style={{ backgroundColor: '#E5E0DC' }}>
+        <div className="min-h-dvh p-6 flex flex-col" style={{ backgroundColor: '#E5E0DC' }}>
             {/* 全域通知元件：統一設定位置與豐富色彩主題 */}
             <Toaster position="top-center" richColors />
 
