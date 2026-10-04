@@ -1,7 +1,7 @@
 // app/milestone-record/page.jsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -24,6 +24,17 @@ export default function MilestoneRecordPage() {
     const { isAuthenticated, isChecking } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [lastEntry, setLastEntry] = useState(null);
+
+    useEffect(() => {
+        supabase
+            .from('portfolio_milestones')
+            .select('date, title')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+            .then(({ data }) => setLastEntry(data));
+    }, []);
 
     // 集中管理表單狀態
     const [formData, setFormData] = useState({
@@ -71,6 +82,11 @@ export default function MilestoneRecordPage() {
 
     return (
         <RecordPageLayout title="Milestone">
+            {lastEntry && (
+                <p className="-mt-6 mb-6 text-xs text-[#3f4a4e]/50 truncate">
+                    上次：{lastEntry.date}・{lastEntry.title}
+                </p>
+            )}
             <form onSubmit={handleSubmit} className="flex flex-col gap-8 grow">
                 {/* 使用抽離的元件，傳遞 state 與 setter */}
                 <FormInput
