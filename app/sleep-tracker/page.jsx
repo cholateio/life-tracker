@@ -1,64 +1,32 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { Moon, Sun, Briefcase, Coffee, Loader2, X } from 'lucide-react';
+import { Moon, Sun, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import RecordPageLayout from '@/components/layout/RecordPageLayout';
-import DatePicker from '@/components/ui/DatePicker';
-import { FormInput } from '@/components/ui/FormInput';
-
-// --- Helper: Get Taipei Time String (HH:mm:ss) ---
-const getTaipeiTime = () => {
-    return new Date().toLocaleTimeString('en-GB', {
-        timeZone: 'Asia/Taipei',
-        hour12: false, // Forces 24-hour format like 22:00:00
-    });
-};
-
-// --- Helper: Get Taipei Date Details ---
-const getTaipeiDateDetails = () => {
-    const now = new Date();
-    return {
-        date: now.toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }), // YYYY-MM-DD
-        weekday: now.toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', weekday: 'short' }), // 週X
-    };
-};
-
-// --- Helper: 由 YYYY-MM-DD 算出週幾（與即時流程的 zh-TW short weekday 格式一致，例如 週二）
-// 以本地午夜建構 Date 只為取 weekday，不涉時區位移
-const getWeekdayFromDate = (dateStr) =>
-    new Date(`${dateStr}T00:00:00`).toLocaleDateString('zh-TW', { weekday: 'short' });
-
-// --- Helper: Calculate Duration between two time strings ---
-const calculateDurationMinutes = (startTime, endTime) => {
-    const parseMinutes = (timeStr) => {
-        const [h, m] = timeStr.split(':').map(Number);
-        return h * 60 + m;
-    };
-
-    const start = parseMinutes(startTime);
-    let end = parseMinutes(endTime);
-    // If wake time is earlier than sleep time (e.g., Sleep 23:00, Wake 07:00), add 24 hours
-    if (end < start) end += 24 * 60;
-
-    return end - start;
-};
-
-// YYYY-MM-DD strings for the last n days ending at today (Taipei), oldest first
-const lastNDates = (n) => {
-    const today = getTaipeiDateDetails().date;
-    const base = new Date(`${today}T00:00:00Z`);
-    const dates = [];
-    for (let i = n - 1; i >= 0; i--) {
-        const d = new Date(base);
-        d.setUTCDate(d.getUTCDate() - i);
-        dates.push(d.toISOString().slice(0, 10));
-    }
-    return dates;
-};
-
-const DAY_TYPE_COLOR = { WORKDAY: '#3f4a4e', HOLIDAY: '#c2785c' };
+import DayTypeToggle from '@/components/sleep-tracker/DayTypeToggle';
+import HistoryStrip from '@/components/sleep-tracker/HistoryStrip';
+import SleepRecordSheet from '@/components/sleep-tracker/SleepRecordSheet';
+import DayRecordsSheet from '@/components/sleep-tracker/DayRecordsSheet';
+import SessionConflictSheet from '@/components/sleep-tracker/SessionConflictSheet';
+import {
+    buildCompleteFields,
+    formatDuration,
+    formatTaipeiMonthDay,
+    getTaipeiTime,
+    getTaipeiToday,
+    lastNDates,
+    toHHMM,
+} from '@/lib/sleep-time';
+import {
+    deleteRecord,
+    fetchOpenSession,
+    fetchRecordsInRange,
+    isPlaceholder,
+    restartSession,
+    saveCompleteRecord,
+    startSession,
+} from '@/lib/sleep';
 
 const ActionButton = ({ onClick, disabled, color, Icon, label }) => (
     <button
@@ -77,92 +45,54 @@ const ActionButton = ({ onClick, disabled, color, Icon, label }) => (
     </button>
 );
 
-function HistoryStrip({ records }) {
-    const dates = lastNDates(7);
-    // Multiple rows per wake date (e.g. naps) are summed; the latest row decides day_type
-    const byDate = {};
-    for (const r of records) {
-        const entry = byDate[r.date] || { total: 0, dayType: r.day_type };
-        entry.total += r.total || 0;
-        entry.dayType = r.day_type;
-        byDate[r.date] = entry;
-    }
+const blankEditor = (date) => ({
+    id: null,
+    date,
+    sleep: '',
+    wake: '',
+    dayType: 'WORKDAY',
+    title: '補紀錄',
+    canDelete: false,
+});
 
-    return (
-        <section className="mt-8 mb-6">
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#3f4a4e]/60">最近 7 天</h3>
-            <div className="flex justify-between gap-1.5">
-                {dates.map((dateStr) => {
-                    const entry = byDate[dateStr];
-                    return (
-                        <div
-                            key={dateStr}
-                            className={`flex flex-1 flex-col items-center rounded-lg py-2 ${
-                                entry ? 'border-2 border-[#3f4a4e]' : 'border-2 border-dashed border-[#3f4a4e]/20'
-                            }`}
-                        >
-                            <span className="text-xs font-bold text-[#3f4a4e]/60">{dateStr.slice(8, 10)}</span>
-                            <span className="mt-1 text-sm font-extrabold text-[#3f4a4e]">
-                                {entry ? (entry.total / 60).toFixed(1) : '–'}
-                            </span>
-                            <span
-                                className="mt-1.5 h-2 w-2 rounded-full"
-                                style={{ backgroundColor: entry ? DAY_TYPE_COLOR[entry.dayType] : 'transparent' }}
-                            />
-                        </div>
-                    );
-                })}
-            </div>
-        </section>
-    );
-}
-
-const ToggleButton = ({ active, onClick, Icon, activeColor }) => (
-    <button
-        onClick={onClick}
-        className={`flex-1 py-3 rounded-full text-base font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
-            active ? `bg-white ${activeColor} shadow-sm` : 'text-[#8a817c] hover:text-[#6b635f]'
-        }`}
-    >
-        <Icon size={20} strokeWidth={2.5} />
-    </button>
-);
+const editorFromRow = (row) => ({
+    id: row.id,
+    date: row.date ?? getTaipeiToday(),
+    sleep: toHHMM(row.sleep_time),
+    wake: toHHMM(row.wake_time),
+    dayType: row.day_type ?? 'WORKDAY',
+    title: isPlaceholder(row) ? '補紀錄' : row.wake_time ? '編輯紀錄' : '補上起床',
+    canDelete: true,
+});
 
 export default function SleepTrackerPage() {
     const [loading, setLoading] = useState(false);
     const [dayType, setDayType] = useState('WORKDAY');
-
-    // Backfill（事後補一整筆完整紀錄）— 與即時打卡的 dayType 分開，避免互相干擾
-    const [showBackfill, setShowBackfill] = useState(false);
-    const [backfillDate, setBackfillDate] = useState(() => getTaipeiDateDetails().date);
-    const [backfillSleep, setBackfillSleep] = useState('');
-    const [backfillWake, setBackfillWake] = useState('');
-    const [backfillDayType, setBackfillDayType] = useState('WORKDAY');
     const [records, setRecords] = useState([]);
+    const [openSession, setOpenSession] = useState(null);
+    const [editor, setEditor] = useState(null);
+    const [dayPicker, setDayPicker] = useState(null);
+    const [conflict, setConflict] = useState(null);
 
-    const fetchRecords = useCallback(async () => {
+    const refresh = useCallback(async () => {
         const dates = lastNDates(7);
-        const { data, error } = await supabase
-            .from('life_sleep')
-            .select('date, total, day_type, created_at')
-            .not('wake_time', 'is', null)
-            .gte('date', dates[0])
-            .lte('date', dates[dates.length - 1])
-            .order('created_at', { ascending: true });
-        if (error) {
-            toast.error(`讀取紀錄失敗：${error.message}`);
-            setRecords([]);
-            return;
-        }
-        setRecords(data || []);
+        const [recent, open] = await Promise.all([
+            fetchRecordsInRange(dates[0], dates[dates.length - 1]),
+            fetchOpenSession(),
+        ]);
+        // On error keep the previous state: an empty/null fallback would read as "no session".
+        if (recent.error) toast.error(`讀取紀錄失敗：${recent.error.message}`);
+        else setRecords(recent.data || []);
+        if (open.error) toast.error(`讀取睡覺中紀錄失敗：${open.error.message}`);
+        else setOpenSession(open.data);
     }, []);
 
     useEffect(() => {
-        const load = () => fetchRecords();
+        const load = () => refresh();
         load();
-    }, [fetchRecords]);
+    }, [refresh]);
 
-    const handleAction = async (actionFn, loadingMsg) => {
+    const handleAction = (actionFn, loadingMsg) => {
         if (loading) return;
         setLoading(true);
         toast.promise(
@@ -175,172 +105,161 @@ export default function SleepTrackerPage() {
         );
     };
 
-    const handleSleep = () =>
+    const openEditor = (initial) => {
+        setDayPicker(null);
+        setConflict(null);
+        setEditor(initial);
+    };
+
+    const beginSession = () =>
         handleAction(async () => {
-            const taipeiTime = getTaipeiTime();
-
-            const { error } = await supabase.from('life_sleep').insert([{ sleep_time: taipeiTime, day_type: dayType }]);
-
+            const time = getTaipeiTime();
+            const { error } = await startSession(time, dayType);
             if (error) throw error;
-            return `已紀錄「${dayType === 'WORKDAY' ? '平日' : '假日'}」睡覺時間 (${taipeiTime})`;
+            refresh();
+            return `已紀錄「${dayType === 'WORKDAY' ? '平日' : '假日'}」睡覺時間 (${time})`;
         }, '正在紀錄...');
+
+    // Re-checks the DB instead of trusting openSession state: another device may have changed it.
+    const handleSleep = async () => {
+        if (loading) return;
+        setLoading(true);
+        const { data: open, error } = await fetchOpenSession();
+        setLoading(false);
+        if (error) return toast.error(`讀取紀錄失敗：${error.message}`);
+        if (open) return setConflict(open);
+        beginSession();
+    };
+
+    const handleRestart = () =>
+        handleAction(async () => {
+            const time = getTaipeiTime();
+            const { error } = await restartSession(conflict.id, time, dayType);
+            if (error) throw error;
+            setConflict(null);
+            refresh();
+            return `已改成從 ${time} 開始睡覺`;
+        }, '正在更新...');
 
     const handleWake = () =>
         handleAction(async () => {
-            const wakeTimeStr = getTaipeiTime();
-            const { date, weekday } = getTaipeiDateDetails();
+            const { data: open, error: fetchError } = await fetchOpenSession();
+            if (fetchError) throw fetchError;
+            if (!open) throw new Error('找不到睡覺中的紀錄，忘了按睡覺的話請用「補紀錄」。');
 
-            // 過濾未完成的 row（wake_time IS NULL），不能只靠「最新一筆」：
-            // backfill 插入的完成紀錄 created_at 是當下，會比開啟中的即時紀錄還新
-            const { data: latest, error: fetchError } = await supabase
-                .from('life_sleep')
-                .select('*')
-                .is('wake_time', null)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (fetchError || !latest) throw new Error('找不到開啟中的睡眠紀錄，請先按睡覺。');
-
-            const durationMinutes = calculateDurationMinutes(latest.sleep_time, wakeTimeStr);
-
-            const { error } = await supabase
-                .from('life_sleep')
-                .update({
-                    wake_time: wakeTimeStr,
-                    date: date,
-                    weekday: weekday,
-                    total: durationMinutes,
-                })
-                .eq('id', latest.id);
-
+            const fields = buildCompleteFields({
+                date: getTaipeiToday(),
+                sleep: open.sleep_time,
+                wake: getTaipeiTime(),
+                dayType: open.day_type,
+            });
+            const { error } = await saveCompleteRecord(open.id, fields);
             if (error) throw error;
-            fetchRecords();
-            return `早安！共睡了 ${Math.floor(durationMinutes / 60)} 小時 ${durationMinutes % 60} 分鐘`;
+            refresh();
+            return `早安！共睡了 ${formatDuration(fields.total)}`;
         }, '正在計算...');
 
-    const handleBackfillSubmit = () =>
+    const handleSave = ({ id, date, sleep, wake, dayType: rowDayType }) =>
         handleAction(async () => {
-            if (!backfillDate || !backfillSleep || !backfillWake) throw new Error('請填寫日期、睡覺與起床時間。');
+            if (!date || !sleep || !wake) throw new Error('請填寫日期、睡覺與起床時間。');
+            const fields = buildCompleteFields({ date, sleep, wake, dayType: rowDayType });
+            if (fields.total === 0) throw new Error('睡覺與起床時間相同。');
 
-            const sleepTime = `${backfillSleep}:00`;
-            const wakeTime = `${backfillWake}:00`;
-            const durationMinutes = calculateDurationMinutes(sleepTime, wakeTime);
-
-            // 寫入一筆已完成 row（含 wake_time），不會被 handleWake 的「找開啟中紀錄」邏輯撈到
-            const { error } = await supabase.from('life_sleep').insert([
-                {
-                    sleep_time: sleepTime,
-                    wake_time: wakeTime,
-                    day_type: backfillDayType,
-                    date: backfillDate,
-                    weekday: getWeekdayFromDate(backfillDate),
-                    total: durationMinutes,
-                },
-            ]);
-
+            const { error } = await saveCompleteRecord(id, fields);
             if (error) throw error;
+            setEditor(null);
+            refresh();
+            return `已儲存 ${date}（${formatDuration(fields.total)}）`;
+        }, '正在儲存...');
 
-            fetchRecords();
-            setShowBackfill(false);
-            setBackfillSleep('');
-            setBackfillWake('');
-            return `已補紀錄 ${backfillDate}（${Math.floor(durationMinutes / 60)} 小時 ${durationMinutes % 60} 分）`;
-        }, '正在補紀錄...');
+    const handleDelete = (id) =>
+        handleAction(async () => {
+            const { error } = await deleteRecord(id);
+            if (error) throw error;
+            setEditor(null);
+            refresh();
+            return '已刪除';
+        }, '正在刪除...');
+
+    const handleSelectDate = (dateStr) => {
+        const rows = records.filter((r) => r.date === dateStr);
+        if (rows.length === 0) return openEditor(blankEditor(dateStr));
+        if (rows.length === 1) return openEditor(editorFromRow(rows[0]));
+        setDayPicker({ date: dateStr, rows });
+    };
+
+    // An open session is the "forgot 起床" case: close it rather than add a second row.
+    // Re-queried, not read from state: state is null before the first load and after a failed read,
+    // and a blank editor opened then would recreate the 2026-10-13 duplicate.
+    const handleBackfill = async () => {
+        if (loading) return;
+        setLoading(true);
+        const { data: open, error } = await fetchOpenSession();
+        setLoading(false);
+        if (error) return toast.error(`讀取紀錄失敗：${error.message}`);
+        openEditor(open ? editorFromRow(open) : blankEditor(getTaipeiToday()));
+    };
 
     return (
         <RecordPageLayout title="睡眠">
-            <div className="bg-[#dcd6d1] p-1.5 rounded-full flex w-full shadow-inner">
-                <ToggleButton
-                    active={dayType === 'WORKDAY'}
-                    onClick={() => setDayType('WORKDAY')}
-                    Icon={Briefcase}
-                    activeColor="text-[#3f4a4e]"
-                />
-                <ToggleButton
-                    active={dayType === 'HOLIDAY'}
-                    onClick={() => setDayType('HOLIDAY')}
-                    Icon={Coffee}
-                    activeColor="text-[#c2785c]"
-                />
-            </div>
+            <DayTypeToggle value={dayType} onChange={setDayType} />
 
             <div className="mt-8 flex gap-3">
                 <ActionButton onClick={handleSleep} disabled={loading} Icon={Moon} label="睡覺" color="#3f4a4e" />
                 <ActionButton onClick={handleWake} disabled={loading} Icon={Sun} label="起床" color="#c2785c" />
             </div>
 
-            <HistoryStrip records={records} />
+            {openSession && (
+                <button
+                    type="button"
+                    onClick={() => openEditor(editorFromRow(openSession))}
+                    className="mt-6 w-full rounded-2xl border-2 border-dashed border-[#3f4a4e]/40 px-4 py-3 text-left active:scale-[0.98] transition-transform"
+                >
+                    <span className="block text-sm font-bold text-[#3f4a4e]">
+                        睡覺中 · 自 {formatTaipeiMonthDay(openSession.created_at)} {toHHMM(openSession.sleep_time)}
+                    </span>
+                    <span className="block text-xs font-bold text-[#3f4a4e]/50">忘了按起床？點這裡補上</span>
+                </button>
+            )}
+
+            <HistoryStrip records={records} onSelectDate={handleSelectDate} />
 
             <section className="mt-auto border-t border-[#3f4a4e]/10 pt-4">
                 <button
                     type="button"
-                    onClick={() => setShowBackfill(true)}
+                    onClick={handleBackfill}
                     className="text-sm font-bold uppercase tracking-widest text-[#3f4a4e]/60 hover:text-[#3f4a4e] transition-colors"
                 >
                     補紀錄
                 </button>
             </section>
 
-            {showBackfill && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40"
-                    onClick={() => !loading && setShowBackfill(false)}
-                >
-                    <div
-                        className="w-full max-w-sm bg-[#fdfbf7] rounded-[2rem] p-6 shadow-2xl flex flex-col gap-5"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-black text-[#3f4a4e]">補紀錄</h2>
-                            <button
-                                onClick={() => setShowBackfill(false)}
-                                disabled={loading}
-                                className="text-[#3f4a4e] opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30"
-                            >
-                                <X size={22} />
-                            </button>
-                        </div>
-
-                        <DatePicker label="起床日期" value={backfillDate} onChange={setBackfillDate} />
-
-                        <FormInput
-                            label="睡覺時間"
-                            type="time"
-                            value={backfillSleep}
-                            onChange={(e) => setBackfillSleep(e.target.value)}
-                        />
-                        <FormInput
-                            label="起床時間"
-                            type="time"
-                            value={backfillWake}
-                            onChange={(e) => setBackfillWake(e.target.value)}
-                        />
-
-                        <div className="bg-[#dcd6d1] p-1.5 rounded-full flex shadow-inner">
-                            <ToggleButton
-                                active={backfillDayType === 'WORKDAY'}
-                                onClick={() => setBackfillDayType('WORKDAY')}
-                                Icon={Briefcase}
-                                activeColor="text-[#3f4a4e]"
-                            />
-                            <ToggleButton
-                                active={backfillDayType === 'HOLIDAY'}
-                                onClick={() => setBackfillDayType('HOLIDAY')}
-                                Icon={Coffee}
-                                activeColor="text-[#c2785c]"
-                            />
-                        </div>
-
-                        <button
-                            onClick={handleBackfillSubmit}
-                            disabled={loading}
-                            className="w-full py-4 rounded-full bg-[#3f4a4e] text-white font-bold text-lg shadow-lg active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                        >
-                            {loading ? <Loader2 className="animate-spin w-5 h-5" /> : '儲存'}
-                        </button>
-                    </div>
-                </div>
+            {editor && (
+                <SleepRecordSheet
+                    initial={editor}
+                    busy={loading}
+                    onSave={handleSave}
+                    onDelete={handleDelete}
+                    onClose={() => setEditor(null)}
+                />
+            )}
+            {dayPicker && (
+                <DayRecordsSheet
+                    date={dayPicker.date}
+                    rows={dayPicker.rows}
+                    onPick={(row) => openEditor(editorFromRow(row))}
+                    onAdd={() => openEditor(blankEditor(dayPicker.date))}
+                    onClose={() => setDayPicker(null)}
+                />
+            )}
+            {conflict && (
+                <SessionConflictSheet
+                    session={conflict}
+                    busy={loading}
+                    onCloseSession={() => openEditor(editorFromRow(conflict))}
+                    onRestart={handleRestart}
+                    onClose={() => setConflict(null)}
+                />
             )}
         </RecordPageLayout>
     );
