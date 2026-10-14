@@ -42,4 +42,4 @@
 - Context: 睡眠頁加「最近 7 天」讀取，用 publishable key（未登入）跑同一條 select 驗證。
 - Error: 回 `data: []`、`error: null`；實際表內 273 筆。`pg_policies` 只剩一條 `ALL` for `authenticated` 且 `auth.uid() = <owner uuid>`——07-23 條目寫的「匿名可讀」已過時。
 - Solution: 以 Supabase MCP `execute_sql` 驗證查詢/分組；頁面上未登入時 7 天列全虛線屬預期。
-- Rule: RLS 下「空陣列無 error」先查 `pg_policies`，別當成沒資料；引用舊 LESSONS 的 policy 描述前先實查。
+- Rule: RLS 下「空陣列無 error」先查 `pg_policies`，別當成沒資料；引用舊 LESSONS 的 policy 描述前先實查。 寫入同理：update/delete 被 RLS 擋下也是 0 列無 error，mutation 一律 `.select()` 確認影響列數（2026-10-14 `lib/sleep.js` `expectOneRow`）。
