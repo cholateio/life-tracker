@@ -11,6 +11,7 @@ import DayRecordsSheet from '@/components/sleep-tracker/DayRecordsSheet';
 import SessionConflictSheet from '@/components/sleep-tracker/SessionConflictSheet';
 import {
     buildCompleteFields,
+    expectedWakeDate,
     formatDuration,
     formatTaipeiMonthDay,
     getTaipeiTime,
@@ -57,7 +58,7 @@ const blankEditor = (date) => ({
 
 const editorFromRow = (row) => ({
     id: row.id,
-    date: row.date ?? getTaipeiToday(),
+    date: row.date ?? (row.sleep_time ? expectedWakeDate(row.created_at, row.sleep_time) : getTaipeiToday()),
     sleep: toHHMM(row.sleep_time),
     wake: toHHMM(row.wake_time),
     dayType: row.day_type ?? 'WORKDAY',
@@ -181,8 +182,8 @@ export default function SleepTrackerPage() {
             return '已刪除';
         }, '正在刪除...');
 
-    // Today's empty slot with an open session is the "forgot 起床" case: close that session rather
-    // than add a second row. Re-queried, not read from state: state is null before the first load
+    // Today's empty slot with an open session waking today is the "forgot 起床" case: close that session
+    // rather than add a second row. A session started tonight wakes tomorrow and is left alone. Re-queried, not read from state: state is null before the first load
     // and after a failed read, and a blank editor opened then would recreate the 2026-10-13 duplicate.
     const openTodaySlot = async () => {
         if (loading) return;
@@ -190,7 +191,9 @@ export default function SleepTrackerPage() {
         const { data: open, error } = await fetchOpenSession();
         setLoading(false);
         if (error) return toast.error(`讀取紀錄失敗：${error.message}`);
-        openEditor(open ? editorFromRow(open) : blankEditor(getTaipeiToday()));
+        const today = getTaipeiToday();
+        const wakesToday = open && expectedWakeDate(open.created_at, open.sleep_time) === today;
+        openEditor(wakesToday ? editorFromRow(open) : blankEditor(today));
     };
 
     const handleSelectDate = (dateStr) => {
