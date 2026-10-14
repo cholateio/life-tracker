@@ -7,7 +7,6 @@ import RecordPageLayout from '@/components/layout/RecordPageLayout';
 import DayTypeToggle from '@/components/sleep-tracker/DayTypeToggle';
 import HistoryStrip from '@/components/sleep-tracker/HistoryStrip';
 import SleepRecordSheet from '@/components/sleep-tracker/SleepRecordSheet';
-import DayRecordsSheet from '@/components/sleep-tracker/DayRecordsSheet';
 import SessionConflictSheet from '@/components/sleep-tracker/SessionConflictSheet';
 import {
     buildCompleteFields,
@@ -22,6 +21,7 @@ import {
 import {
     deleteRecord,
     fetchOpenSession,
+    fetchRecordByDate,
     fetchRecordsInRange,
     isPlaceholder,
     restartSession,
@@ -72,7 +72,6 @@ export default function SleepTrackerPage() {
     const [records, setRecords] = useState([]);
     const [openSession, setOpenSession] = useState(null);
     const [editor, setEditor] = useState(null);
-    const [dayPicker, setDayPicker] = useState(null);
     const [conflict, setConflict] = useState(null);
 
     const refresh = useCallback(async () => {
@@ -97,7 +96,12 @@ export default function SleepTrackerPage() {
         if (loading) return;
         setLoading(true);
         toast.promise(
-            actionFn().finally(() => setLoading(false)),
+            actionFn()
+                .catch((err) => {
+                    refresh();
+                    throw err;
+                })
+                .finally(() => setLoading(false)),
             {
                 loading: loadingMsg,
                 success: (data) => data,
@@ -107,7 +111,6 @@ export default function SleepTrackerPage() {
     };
 
     const openEditor = (initial) => {
-        setDayPicker(null);
         setConflict(null);
         setEditor(initial);
     };
@@ -167,6 +170,11 @@ export default function SleepTrackerPage() {
             if (fields.total === 0) throw new Error('睡覺與起床時間相同。');
 
             const { error } = await saveCompleteRecord(id, fields);
+            if (error?.dateConflict) {
+                const { data: existing } = await fetchRecordByDate(date);
+                if (existing) openEditor(editorFromRow(existing));
+                throw new Error(`${date} 已經有紀錄了${existing ? '，已打開那一筆' : ''}。`);
+            }
             if (error) throw error;
             setEditor(null);
             refresh();
@@ -197,9 +205,8 @@ export default function SleepTrackerPage() {
     };
 
     const handleSelectDate = (dateStr) => {
-        const rows = records.filter((r) => r.date === dateStr);
-        if (rows.length === 1) return openEditor(editorFromRow(rows[0]));
-        if (rows.length > 1) return setDayPicker({ date: dateStr, rows });
+        const row = records.find((r) => r.date === dateStr);
+        if (row) return openEditor(editorFromRow(row));
         if (dateStr === getTaipeiToday()) return openTodaySlot();
         openEditor(blankEditor(dateStr));
     };
@@ -230,20 +237,12 @@ export default function SleepTrackerPage() {
 
             {editor && (
                 <SleepRecordSheet
+                    key={editor.id ?? `new-${editor.date}`}
                     initial={editor}
                     busy={loading}
                     onSave={handleSave}
                     onDelete={handleDelete}
                     onClose={() => setEditor(null)}
-                />
-            )}
-            {dayPicker && (
-                <DayRecordsSheet
-                    date={dayPicker.date}
-                    rows={dayPicker.rows}
-                    onPick={(row) => openEditor(editorFromRow(row))}
-                    onAdd={() => openEditor(blankEditor(dayPicker.date))}
-                    onClose={() => setDayPicker(null)}
                 />
             )}
             {conflict && (

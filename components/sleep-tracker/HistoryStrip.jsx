@@ -6,16 +6,8 @@ const DAY_TYPE_COLOR = { WORKDAY: '#3f4a4e', HOLIDAY: '#c2785c' };
 
 export default function HistoryStrip({ records, onSelectDate }) {
     const dates = lastNDates(7);
-    // Multiple complete rows per wake date (e.g. naps) are summed; the latest row decides day_type.
-    // Placeholders are skipped so their date still renders as an empty slot.
-    const byDate = {};
-    for (const r of records) {
-        if (!r.wake_time) continue;
-        const entry = byDate[r.date] || { total: 0, dayType: r.day_type };
-        entry.total += r.total || 0;
-        entry.dayType = r.day_type;
-        byDate[r.date] = entry;
-    }
+    // date is unique per row; placeholders (no wake_time) are skipped so their date renders empty.
+    const byDate = Object.fromEntries(records.filter((r) => r.wake_time).map((r) => [r.date, r]));
 
     return (
         <section className="mt-8 mb-6">
@@ -38,7 +30,7 @@ export default function HistoryStrip({ records, onSelectDate }) {
                             </span>
                             <span
                                 className="mt-1.5 h-2 w-2 rounded-full"
-                                style={{ backgroundColor: entry ? DAY_TYPE_COLOR[entry.dayType] : 'transparent' }}
+                                style={{ backgroundColor: entry ? DAY_TYPE_COLOR[entry.day_type] : 'transparent' }}
                             />
                         </button>
                     );

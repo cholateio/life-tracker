@@ -62,8 +62,8 @@ life-tracker/
 │   ├── layout/RecordPageLayout.jsx
 │   ├── game-record/              ← v2 記錄端：GameList / GameForm / DayForm /
 │   │                                ScreenshotUploader / TemperaturePicker / CounterStepper
-│   ├── sleep-tracker/            ← HistoryStrip / SleepRecordSheet / DayRecordsSheet /
-│   │                                SessionConflictSheet / SheetShell / DayTypeToggle
+│   ├── sleep-tracker/            ← HistoryStrip / SleepRecordSheet / SessionConflictSheet /
+│   │                                SheetShell / DayTypeToggle
 │   └── ui/                       ← FormBase / FormInput / FormTextarea /
 │                                    DatePicker / DropdownSelect / ToggleSwitch /
 │                                    SubmitButton / ImageUpload / ImageUploadGallery / TagPicker
