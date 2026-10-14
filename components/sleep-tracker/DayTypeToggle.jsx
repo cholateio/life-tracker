@@ -7,7 +7,7 @@ const ToggleButton = ({ active, onClick, Icon, activeColor }) => (
         type="button"
         onClick={onClick}
         className={`flex-1 py-3 rounded-full text-base font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
-            active ? `bg-white ${activeColor} shadow-sm` : 'text-[#8a817c] hover:text-[#6b635f]'
+            active ? `bg-transparent border-2 border-current ${activeColor}` : 'border-2 border-transparent text-[#8a817c] hover:text-[#6b635f]'
         }`}
     >
         <Icon size={20} strokeWidth={2.5} />
