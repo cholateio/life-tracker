@@ -8,6 +8,7 @@ import DayTypeToggle from '@/components/sleep-tracker/DayTypeToggle';
 import HistoryStrip from '@/components/sleep-tracker/HistoryStrip';
 import SleepRecordSheet from '@/components/sleep-tracker/SleepRecordSheet';
 import SessionConflictSheet from '@/components/sleep-tracker/SessionConflictSheet';
+import SleepTrend from '@/components/sleep-tracker/SleepTrend';
 import {
     buildCompleteFields,
     expectedWakeDate,
@@ -75,7 +76,8 @@ export default function SleepTrackerPage() {
     const [conflict, setConflict] = useState(null);
 
     const refresh = useCallback(async () => {
-        const dates = lastNDates(7);
+        // 35 days: the 7-day strip plus the 28-day baseline SleepTrend compares against.
+        const dates = lastNDates(35);
         const [recent, open] = await Promise.all([
             fetchRecordsInRange(dates[0], dates[dates.length - 1]),
             fetchOpenSession(),
@@ -234,6 +236,7 @@ export default function SleepTrackerPage() {
             )}
 
             <HistoryStrip records={records} onSelectDate={handleSelectDate} />
+            <SleepTrend records={records} />
 
             {editor && (
                 <SleepRecordSheet
