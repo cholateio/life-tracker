@@ -62,6 +62,8 @@ life-tracker/
 │   ├── layout/RecordPageLayout.jsx
 │   ├── game-record/              ← v2 記錄端：GameList / GameForm / DayForm /
 │   │                                ScreenshotUploader / TemperaturePicker / CounterStepper
+│   ├── sleep-tracker/            ← HistoryStrip / SleepRecordSheet / DayRecordsSheet /
+│   │                                SessionConflictSheet / SheetShell / DayTypeToggle
 │   └── ui/                       ← FormBase / FormInput / FormTextarea /
 │                                    DatePicker / DropdownSelect / ToggleSwitch /
 │                                    SubmitButton / ImageUpload / ImageUploadGallery / TagPicker
@@ -72,6 +74,8 @@ life-tracker/
 ├── lib/
 │   ├── supabase.js               ← Supabase client（publishable key）
 │   ├── games.js                  ← gaming-record v2 client 資料層（CRUD + 排序/日期工具）
+│   ├── sleep-time.js             ← 睡眠頁純時間函式（無 import，可直接 node 檢查）
+│   ├── sleep.js                  ← life_sleep 資料層（session / placeholder / complete 列狀態）
 │   └── nocturne.js               ← 夜籤邏輯（權重抽籤 + localStorage 紀錄，client-only）
 │
 ├── scripts/
