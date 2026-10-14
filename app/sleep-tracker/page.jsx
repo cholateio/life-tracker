@@ -145,7 +145,7 @@ export default function SleepTrackerPage() {
         handleAction(async () => {
             const { data: open, error: fetchError } = await fetchOpenSession();
             if (fetchError) throw fetchError;
-            if (!open) throw new Error('找不到睡覺中的紀錄，忘了按睡覺的話請用「補紀錄」。');
+            if (!open) throw new Error('找不到睡覺中的紀錄，忘了按睡覺的話請點下方今天的卡片補上。');
 
             const fields = buildCompleteFields({
                 date: getTaipeiToday(),
@@ -181,23 +181,24 @@ export default function SleepTrackerPage() {
             return '已刪除';
         }, '正在刪除...');
 
-    const handleSelectDate = (dateStr) => {
-        const rows = records.filter((r) => r.date === dateStr);
-        if (rows.length === 0) return openEditor(blankEditor(dateStr));
-        if (rows.length === 1) return openEditor(editorFromRow(rows[0]));
-        setDayPicker({ date: dateStr, rows });
-    };
-
-    // An open session is the "forgot 起床" case: close it rather than add a second row.
-    // Re-queried, not read from state: state is null before the first load and after a failed read,
-    // and a blank editor opened then would recreate the 2026-10-13 duplicate.
-    const handleBackfill = async () => {
+    // Today's empty slot with an open session is the "forgot 起床" case: close that session rather
+    // than add a second row. Re-queried, not read from state: state is null before the first load
+    // and after a failed read, and a blank editor opened then would recreate the 2026-10-13 duplicate.
+    const openTodaySlot = async () => {
         if (loading) return;
         setLoading(true);
         const { data: open, error } = await fetchOpenSession();
         setLoading(false);
         if (error) return toast.error(`讀取紀錄失敗：${error.message}`);
         openEditor(open ? editorFromRow(open) : blankEditor(getTaipeiToday()));
+    };
+
+    const handleSelectDate = (dateStr) => {
+        const rows = records.filter((r) => r.date === dateStr);
+        if (rows.length === 1) return openEditor(editorFromRow(rows[0]));
+        if (rows.length > 1) return setDayPicker({ date: dateStr, rows });
+        if (dateStr === getTaipeiToday()) return openTodaySlot();
+        openEditor(blankEditor(dateStr));
     };
 
     return (
@@ -223,16 +224,6 @@ export default function SleepTrackerPage() {
             )}
 
             <HistoryStrip records={records} onSelectDate={handleSelectDate} />
-
-            <section className="mt-auto border-t border-[#3f4a4e]/10 pt-4">
-                <button
-                    type="button"
-                    onClick={handleBackfill}
-                    className="text-sm font-bold uppercase tracking-widest text-[#3f4a4e]/60 hover:text-[#3f4a4e] transition-colors"
-                >
-                    補紀錄
-                </button>
-            </section>
 
             {editor && (
                 <SleepRecordSheet
