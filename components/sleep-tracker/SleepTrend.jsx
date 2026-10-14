@@ -24,12 +24,12 @@ const buildTiles = ({ recent, base }) => {
 
     return [
         tile(
-            '入睡時間',
-            recent.onsetOffset == null ? null : onsetOffsetToClock(recent.onsetOffset),
-            null,
-            recent.onsetOffset,
-            base.onsetOffset,
-            { flat: 10, lowerIsBetter: true, up: '晚', down: '早', format: minutesText }
+            '少於 5 小時',
+            recent.nights ? String(recent.shortCount) : null,
+            '晚',
+            recent.shortPerWeek,
+            base.shortPerWeek,
+            { flat: 0.3, lowerIsBetter: true, up: '每週多', down: '每週少', format: (n) => `${n.toFixed(1)} 晚` }
         ),
         tile(
             '平日睡眠',
@@ -40,15 +40,15 @@ const buildTiles = ({ recent, base }) => {
             { flat: 0.2, lowerIsBetter: false, up: '多', down: '少', format: (h) => `${h.toFixed(1)} h` }
         ),
         tile(
-            '少於 5 小時',
-            recent.nights ? String(recent.shortCount) : null,
-            '晚',
-            recent.shortPerWeek,
-            base.shortPerWeek,
-            { flat: 0.3, lowerIsBetter: true, up: '每週多', down: '每週少', format: (n) => `${n.toFixed(1)} 晚` }
+            '入睡時間',
+            recent.onsetOffset == null ? null : onsetOffsetToClock(recent.onsetOffset),
+            null,
+            recent.onsetOffset,
+            base.onsetOffset,
+            { flat: 10, lowerIsBetter: true, up: '晚', down: '早', format: minutesText }
         ),
         tile(
-            '假日起床',
+            '假日起床時間',
             recent.holidayWake == null ? null : formatClock(recent.holidayWake),
             null,
             recent.holidayWake,
