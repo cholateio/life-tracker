@@ -299,7 +299,7 @@ export default function CrawlerPage() {
                                             size={14}
                                             className="text-[#00bba3] shrink-0 group-hover:scale-110 transition-transform"
                                         />
-                                        <span className="text-[#2d3538] text-sm font-bold truncate">{news.title}</span>
+                                        <span className="text-[#2d3538] text-sm font-bold line-clamp-2">{news.title}</span>
                                     </a>
                                 ))}
                             </div>
