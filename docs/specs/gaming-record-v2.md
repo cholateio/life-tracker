@@ -4,6 +4,7 @@
 > 逐項討論後的**定案**。實作以本檔為準；v1 僅供追溯設計脈絡。
 >
 > 定案日期：2026-08-26
+> 修訂 2026-10-16：相簿頁改為公開 + 劇透警告（portfolio 端），portfolio_milestones 讀取收窄為 authenticated；下列 cookie gate 描述已依此更新。
 
 ## 0. 與 v1 的差異總覽
 
@@ -29,11 +30,11 @@ v1 的設計原則（§0）**全數沿用**，並新增一條：
   遊戲資料編輯、刪除。所有**寫入**只發生在這裡。
 - **portfolio**（cholate.dev，公開站）：呈現。
   - `/collection` games tab：**公開**（現狀不變）。
-  - `/collection/game/[slug]` 單一遊戲相簿頁：**半私人**——cookie gate
-    （`site_access`，走 `lib/access.js` 既有機制）。
+  - `/collection/game/[slug]` 單一遊戲相簿頁：**公開**，進入前有劇透警告
+    （每款遊戲各記一次，localStorage）。
 - 兩專案共用同一個 Supabase 與 GCS。
-- 已知取捨（沿用 portfolio 2026-07-23 定位「防隨手逛到即可」）：cookie gate
-  只擋 UI，anon key 可直讀 REST；GCS 物件本身是公開 URL。資料層不做真防護。
+- 遊戲資料（`portfolio_games*`）對 anon 可讀、GCS 物件為公開 URL——相簿本就公開，
+  不需資料層防護。
 
 ## 2. 資料模型（Supabase）
 
@@ -259,8 +260,7 @@ rating / final_note / bookmark / total_hours / 基本 metadata 隨時可編輯�
 
 ## 5. portfolio 頁面
 
-規範：查詢一律收進 `services/portfolio.js` + `executeQuery`；gate 判斷只走
-`lib/access.js` 的 `isValidToken()`（portfolio CLAUDE.md constraints）。
+規範：查詢一律收進 `services/portfolio.js` + `executeQuery`（portfolio CLAUDE.md constraints）。
 
 ### 5.1 `/collection` games tab（改查詢，不改呈現）
 
@@ -268,7 +268,7 @@ rating / final_note / bookmark / total_hours / 基本 metadata 隨時可編輯�
 cover_resolved, last_played_at`，按 `last_played_at desc`。Marquee + WaveList
 不動；清單項連結到 `/collection/game/[slug]`。
 
-### 5.2 `/collection/game/[slug]`（新頁，cookie gate）
+### 5.2 `/collection/game/[slug]`（新頁，公開 + 劇透警告）
 
 - 標頭兩行：`{title}` ／ `{total_hours} 小時 · ★{rating} · {first}–{last}`，
   其餘 metadata（platform / studio / 購買資訊 / final_note）收合。
@@ -321,6 +321,6 @@ v1 原清單全數沿用：逐張標記流程、心得引導問句、連續紀�
 - life-tracker 新依賴：`sharp`。GCS 憑證沿用現有 env；無新付費服務。
 - `portfolio_anime` 與 anime-record 頁面本期**完全不動**。
 - portfolio 端改動含 cookie gate 相關讀取路徑 → 依 kit 規則屬 sensitive，
-  review 不可跳過。
+  review 不可跳過。（2026-10-16 起相簿已公開，此條僅記錄當時 rollout）
 - 兩專案各自部署；順序 P0（life-tracker + DB）→ P1（portfolio），
   中間 games tab 空窗屬預期（§2.6）。

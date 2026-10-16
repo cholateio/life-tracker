@@ -26,15 +26,27 @@ export default function MilestoneRecordPage() {
     const [loading, setLoading] = useState(false);
     const [lastEntry, setLastEntry] = useState(null);
 
+    // portfolio_milestones is readable by authenticated only (2026-10-16).
     useEffect(() => {
+        if (!isAuthenticated) {
+            setLastEntry(null);
+            return;
+        }
+        let cancelled = false;
         supabase
             .from('portfolio_milestones')
             .select('date, title')
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle()
-            .then(({ data }) => setLastEntry(data));
-    }, []);
+            .then(({ data }) => {
+                if (!cancelled) setLastEntry(data);
+            });
+        // A read still in flight when auth drops must not repopulate the hint.
+        return () => {
+            cancelled = true;
+        };
+    }, [isAuthenticated]);
 
     // 集中管理表單狀態
     const [formData, setFormData] = useState({
