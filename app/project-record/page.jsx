@@ -14,12 +14,23 @@ import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import SubmitButton from '@/components/ui/SubmitButton';
 import ImageUpload from '@/components/ui/ImageUpload';
 import TagPicker from '@/components/ui/TagPicker';
+import { Label } from '@/components/ui/FormBase';
 import { useAuth } from '@/hooks/useAuth';
 
 // portfolio's ProjectItem renders the thumbnail with only w-full — no object-cover,
 // no fixed height — so the stored file's own ratio decides that card's grid height.
 const THUMB_WIDTH = 1280;
 const THUMB_HEIGHT = 720;
+
+// Mirrors portfolio's config/sitedata.js PROJECT_TOPICS (slug + label only) —
+// codes are the contract stored in portfolio_projects.topics. Keep in sync.
+const PROJECT_TOPICS = [
+    { slug: 'idol-music', label: '偶像與音樂' },
+    { slug: 'ai-workflow', label: 'AI 與工作流' },
+    { slug: 'life-log', label: '生活紀錄' },
+    { slug: 'visual', label: '視覺與互動' },
+    { slug: 'learning', label: '閱讀與學習' },
+];
 
 const slugify = (s) =>
     s
@@ -55,6 +66,7 @@ export default function ProjectRecordPage() {
         description: '',
         date: todayLocal(),
         stack: [],
+        topics: [],
         github: '',
         demo: '',
         featured: false,
@@ -81,6 +93,12 @@ export default function ProjectRecordPage() {
             return { ...prev, [name]: value };
         });
     };
+
+    const toggleTopic = (slug) =>
+        setFormData((prev) => ({
+            ...prev,
+            topics: prev.topics.includes(slug) ? prev.topics.filter((t) => t !== slug) : [...prev.topics, slug],
+        }));
 
     const handleSlugChange = (e) => {
         setSlugTouched(true);
@@ -143,10 +161,11 @@ export default function ProjectRecordPage() {
                 slug,
                 // Always an array: portfolio's detail page maps over stack with no null guard.
                 // Canonicalized to the DB's casing — a tag added before the options query
-                // resolved keeps whatever was typed, which would split portfolio's tag pages.
+                // resolved keeps whatever was typed, leaving two spellings in the STACK lists.
                 stack: formData.stack.map(
                     (t) => stackOptions.find((o) => o.toLowerCase() === t.toLowerCase()) ?? t,
                 ),
+                topics: formData.topics,
                 intro: formData.intro.trim() || null,
                 description: formData.description.trim() || null,
                 date: formData.date,
@@ -222,6 +241,29 @@ export default function ProjectRecordPage() {
                     options={stackOptions}
                     onChange={(tags) => setFormData((prev) => ({ ...prev, stack: tags }))}
                 />
+                <div>
+                    <Label>Topics</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {PROJECT_TOPICS.map((t) => {
+                            const on = formData.topics.includes(t.slug);
+                            return (
+                                <button
+                                    key={t.slug}
+                                    type="button"
+                                    aria-pressed={on}
+                                    onClick={() => toggleTopic(t.slug)}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-bold transition-all active:scale-95 ${
+                                        on
+                                            ? 'bg-[#3f4a4e] text-[#E5E0DC]'
+                                            : 'border-2 border-dashed border-[#3f4a4e]/30 text-[#3f4a4e]/60'
+                                    }`}
+                                >
+                                    {t.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
                 <FormInput
                     label="GitHub"
                     name="github"

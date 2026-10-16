@@ -5,9 +5,8 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Label, commonInputStyles } from './FormBase';
 
-// Tag identity is case-insensitive in EVERY comparison below. portfolio's tag pages
-// match with .contains('stack', [tag]), so 'supabase' next to 'Supabase' splits one
-// tag into two pages, one of them empty. `options` arrives asynchronously, so a tag
+// Tag identity is case-insensitive in EVERY comparison below, so 'supabase' never sits
+// next to 'Supabase' as two tags. `options` arrives asynchronously, so a tag
 // the user typed first can be a case variant of one the DB already knows — comparing
 // exactly anywhere would leave that variant selected, unselectable, or duplicated.
 const eq = (a, b) => a.toLowerCase() === b.toLowerCase();
